@@ -1,21 +1,87 @@
-# MoTT
-MoTT is the official repository of the paper "A Motion Transformer for Single Particle Tracking in Fluorescence Microscopy Images", which has been accepted by MICCAI 2023. This work provides a powerful tool for studying the complex spatiotemporal behavior of subcellular structures. 
+# MoTT: Particle Tracking Method in Fluorescence Microscopy Images
+MoTT is the official repository of the paper "[A Motion Transformer for Single Particle Tracking in Fluorescence Microscopy Images](https://link.springer.com/chapter/10.1007/978-3-031-43993-3_49)" , which has been accepted by MICCAI 2023. This work provides a powerful tool for studying the complex spatiotemporal behavior of subcellular structures. ([Springer Link](https://link.springer.com/chapter/10.1007/978-3-031-43993-3_49), [bioRxiv](https://www.biorxiv.org/content/10.1101/2023.07.20.549804v1))
 
 
-## Code Structure
+## Environment
+The code is developed using python 3.7.3 on Ubuntu 18.04. NVIDIA GPUs are needed. The code is developed and tested using 1 NVIDIA GeForce RTX 2080 Ti card.
+
+## Quick Start
+### Installation
+1. Create a virtual environment
 ```
-MoTT  
-    `--dataset   
-    `--outputmodel_obtainresult  
-    `--src  
-    `--transformer  
-    `--Dataset.py  
-    `--Dataset_match.py  
-    `--traickingPerformanceEvaluation.jar  
-    `--train_test.py  
+conda create -n mott python==3.7.3 -y
+conda activate mott
 ```
+2. Install pytorch==1.8.0+cu111 torchvision==0.9.0+cu111
+```
+pip install torch==1.8.0+cu111 torchvision==0.9.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html
+```
+3. Clone this repo
+```
+git clone https://github.com/imzhangyd/MoTT.git
+cd MoTT
+```
+4. Install dependencies:
+ ```
+ pip install -r requirements.txt
+ ```
+
+
+
+
 ## Dataset and pretrained model
-Download the dataset and pretained model by https://drive.google.com/file/d/1-9hf-8kj1k2NpnquobDP29SZgNZ9cSm5/view?usp=drivesdk.
+Download the dataset and pretained model by https://drive.google.com/file/d/1-9hf-8kj1k2NpnquobDP29SZgNZ9cSm5/view?usp=drivesdk. And make the code structure like this:
 
+```
+|-- MoTT  
+`-- |-- dataset
+    `-- |-- 20220406_exp_mergesnr_trainTFT # Used for training
+        |    |-- MICROTUBULE snr 1247 density high_train.txt
+        |    |-- MICROTUBULE snr 1247 density high_val.txt
+        |    |-- MICROTUBULE snr 1247 density low_train.txt
+        |    |-- MICROTUBULE snr 1247 density low_val.txt
+        |    ... ...
+        `-- deepblink_det # Detection results by deepBlink detector used for prediction
+        |    |-- MICROTUBULE snr 7 density low.xml
+        |    |-- MICROTUBULE snr 4 density low.xml
+        |    |-- MICROTUBULE snr 2 density low.xml
+        |    ... ...
+        `-- ground_truth # Ground truth used as GT detection for prediction or as label for evaluation
+        |    |-- MICROTUBULE snr 7 density low.xml
+        |    |-- MICROTUBULE snr 4 density low.xml
+        |    |-- MICROTUBULE snr 2 density low.xml
+        |    ... ...
+    `-- outputmodel_obtainresult    # our pretrained model checkpoint
+    `-- src    # tracking performance evaluation java code
+    `-- transformer
+    `-- Dataset.py    # dataset class when train
+    `-- Dataset_match.py    # dataset class when prediction
+    `-- traickingPerformanceEvaluation.jar    # tracking performance evaluation tool
+    `-- train_test.py
+```
+
+## Cite this paper
+```
+@InProceedings{10.1007/978-3-031-43993-3_49,
+author="Zhang, Yudong
+and Yang, Ge",
+editor="Greenspan, Hayit
+and Madabhushi, Anant
+and Mousavi, Parvin
+and Salcudean, Septimiu
+and Duncan, James
+and Syeda-Mahmood, Tanveer
+and Taylor, Russell",
+title="A Motion Transformer for Single Particle Tracking in Fluorescence Microscopy Images",
+booktitle="Medical Image Computing and Computer Assisted Intervention -- MICCAI 2023",
+year="2023",
+publisher="Springer Nature Switzerland",
+address="Cham",
+pages="503--513",
+isbn="978-3-031-43993-3"
+}
+```
 ## Acknowledgement
 The model of this repository is based on the repository [attention-is-all-you-need-pytorch](https://github.com/jadore801120/attention-is-all-you-need-pytorch).
+
+
