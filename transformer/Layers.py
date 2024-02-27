@@ -1,6 +1,6 @@
 ''' Define the Layers '''
 import torch.nn as nn
-import torch
+# import torch
 from transformer.SubLayers import MultiHeadAttention, PositionwiseFeedForward
 
 

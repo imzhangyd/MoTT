@@ -1,6 +1,10 @@
 '''A wrapper class for scheduled optimizer '''
 import numpy as np
 
+
+__author__ = "Yudong Zhang"
+
+
 class ScheduledOptim():
     '''A simple wrapper class for learning rate scheduling'''
 

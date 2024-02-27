@@ -1,9 +1,12 @@
-from cv2 import norm
+# from cv2 import norm
 from torch.utils.data import Dataset
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
 import math
+
+
+__author__ = "Yudong Zhang"
 
 
 def normlization(tensor,mean,std):

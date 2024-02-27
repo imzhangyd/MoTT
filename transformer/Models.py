@@ -1,5 +1,5 @@
 ''' Define the Transformer model '''
-from cv2 import dnn_Model
+# from cv2 import dnn_Model
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 
 __author__ = "Yu-Hsiang Huang"
-
+__modified_by__ = "Yudong Zhang"
 
 def get_pad_mask(seq, pad_idx):
     return (seq != pad_idx).unsqueeze(-2)

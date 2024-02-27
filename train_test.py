@@ -37,6 +37,8 @@ import pandas as pd
 import subprocess
 
 
+__author__ = "Yudong Zhang"
+
 
 def train_epoch(model, training_data, optimizer, opt, device, smoothing):
     ''' Epoch operation in training phase'''
