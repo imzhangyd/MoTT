@@ -50,14 +50,14 @@ def trainval(opt):
         
     device = torch.device('cuda')
 
-    print('==>init dataLoader')
+    print('[Info] Initialize dataLoader')
     batch_size = opt.batch_size
     ins_loader_train,traindata = func_getdataloader(txtfile=opt.train_path, batch_size=batch_size, shuffle=True, num_workers=16)
     ins_loader_val,valdata = func_getdataloader(txtfile=opt.val_path, batch_size=batch_size, shuffle=True, num_workers=16)
     print('\tTraining data number:{}'.format(len(traindata)))
     print('\tValidation data number:{}'.format(len(valdata)))
 
-    print('==>init transformer')
+    print('[Info] Initialize transformer')
     transformer = Transformer(
         n_passed = opt.len_established,
         n_future = opt.len_future,
@@ -73,12 +73,12 @@ def trainval(opt):
         dropout=opt.dropout)
     transformer_ins = transformer.to(device)
 
-    print('==>init optimizer')
+    print('[Info] Initialize optimizer')
     optimizer = ScheduledOptim(
         optim.Adam(transformer_ins.parameters(), betas=(0.9, 0.98), eps=1e-09),
         opt.lr_mul, opt.d_model, opt.n_warmup_steps)
     
-    print('==>start train')
+    print('[Info] Start train')
     train(transformer_ins, ins_loader_train,len(traindata), ins_loader_val,len(valdata), optimizer, device, opt)
 
 
@@ -137,7 +137,7 @@ if __name__ == '__main__':
 
     opt = parser.parse_args()
 
-    trainval(opt)
+    # trainval(opt)
 
     
     #==================test=====================
