@@ -1,2 +1,5 @@
 dataset/
 outputmodel_obtainresult/
+230213**/
+__pycache__/
+**/__pycache__/
