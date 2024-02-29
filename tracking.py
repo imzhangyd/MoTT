@@ -62,7 +62,7 @@ if __name__ == '__main__':
     test_det_pa = opt.test_path
     model_p = opt.model_ckpt_path
     output_csv_pa = os.path.join(opt.eval_save_path, nowname, 'track_result.csv')
-
+    os.makedirs(os.path.join(opt.eval_save_path, nowname))
     save_args_to_file(opt, os.path.join(opt.eval_save_path, nowname, 'param.txt'))
 
     keep_track = tracking(

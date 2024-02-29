@@ -367,8 +367,8 @@ def tracking(input_detxml,output_trackcsv,model_path,fract,Past,Cand,Near,no_cud
                 temp_pd = pd.DataFrame(temp_dic)
                 established_track_HOLDnum = established_track_HOLDnum.append(temp_pd)
 
-
-        print('[Info] Success {}'.format(time.strftime('%Y%m%d_%H_%M_%S',time.localtime(int(round(time.time()*1000))/1000))))
+        if this_frame%20 == 0:
+            print('[Info] Success {}'.format(time.strftime('%Y%m%d_%H_%M_%S',time.localtime(int(round(time.time()*1000))/1000))))
 
         this_frame += 1
 
