@@ -32,18 +32,18 @@ Download the dataset and pretained model by https://drive.google.com/drive/folde
 ```
 |-- MoTT  
 `-- |-- dataset
-    `-- |-- ISBI_mergesnr_trainval_data # Used for training
+    `-- |-- ISBI_mergesnr_trainval_data # for training, ISBI training data
         |    |-- MICROTUBULE snr 1247 density high_train.txt
         |    |-- MICROTUBULE snr 1247 density high_val.txt
         |    |-- MICROTUBULE snr 1247 density low_train.txt
         |    |-- MICROTUBULE snr 1247 density low_val.txt
         |    ... ...
-        `-- deepblink_det # Detection results by deepBlink detector used for prediction
+        `-- deepblink_det # for testing, detection results by deepBlink detector, ISBI challenge data
         |    |-- MICROTUBULE snr 7 density low.xml
         |    |-- MICROTUBULE snr 4 density low.xml
         |    |-- MICROTUBULE snr 2 density low.xml
         |    ... ...
-        `-- ground_truth # Ground truth used as GT detection for prediction or as label for evaluation
+        `-- ground_truth # Ground truth used as GT detection for prediction or as label for evaluation, ISBI challenge data
         |    |-- MICROTUBULE snr 7 density low.xml
         |    |-- MICROTUBULE snr 4 density low.xml
         |    |-- MICROTUBULE snr 2 density low.xml
