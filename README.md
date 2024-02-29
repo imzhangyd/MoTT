@@ -76,9 +76,9 @@ python train_tracking_eval.py \
 --test_path='dataset' \
 --testsnr_list 4 7 \
 --eval_save_path='./prediction/' \
---train True \
---tracking True \
---eval True
+--train \
+--tracking \
+--eval
 ```
 
 2. Train only, no tracking and evaluation.
@@ -90,9 +90,7 @@ python train_tracking_eval.py \
 --use_tb=False \
 --no_cuda=False \
 --ckpt_save_root='./checkpoint' \
---train True \
---tracking False \
---eval False
+--train
 ```
 
 3. Train and tracking, no evaluation
@@ -107,9 +105,8 @@ python train_tracking_eval.py \
 --test_path='dataset' \
 --testsnr_list 4 7 \
 --eval_save_path='./prediction/' \
---train True \
---tracking True \
---eval False
+--train \
+--tracking
 ```
 
 4. Tracking using pretrained checkpoint and evaluation
@@ -121,9 +118,8 @@ python train_tracking_eval.py \
 --testsnr_list 4 7 \
 --eval_save_path='./prediction/' \
 --model_ckpt_path='./pretrained_model/MICROTUBULE_snr_1247_density_low/20220406_11_18_51.chkpt' \
---train False \
---tracking True \
---eval True
+--tracking \
+--eval
 ```
 
 5. Tracking using the pretrained checkpoint, no evaluation
@@ -135,9 +131,7 @@ python train_tracking_eval.py \
 --testsnr_list 4 7 \
 --eval_save_path='./prediction/' \
 --model_ckpt_path='./pretrained_model/MICROTUBULE_snr_1247_density_low/20220406_11_18_51.chkpt' \
---train False \
---tracking True \
---eval False
+--tracking
 ```
 
 6. Evaluation only
@@ -145,9 +139,15 @@ python train_tracking_eval.py \
 python eval.py \
 --GTxmlpath='./dataset/ground_truth/MICROTUBULE snr 7 density low.xml' \
 --pred_xmlpath='./prediction/......'
-
 ```
 
+7. Tracking only
+```
+python tracking.py \
+--test_path='dataset/deepblink_det/MICROTUBULE snr 7 density low.xml' \
+--model_ckpt_path='./pretrained_model/MICROTUBULE_snr_1247_density_low/20220406_11_18_51.chkpt' \
+--eval_save_path='./prediction/'
+```
 
 
 ## Cite this paper
