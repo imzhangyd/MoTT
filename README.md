@@ -68,8 +68,8 @@ Download the dataset and pretained model by https://drive.google.com/drive/folde
 ```
 python train_tracking_eval.py \
 --trainfilename='MICROTUBULE snr 1247 density low' \
---train_path='dataset/ISBI_mergesnr_trainval/MICROTUBULE snr 1247 density low_train.txt' \
---val_path='dataset/ISBI_mergesnr_trainval/MICROTUBULE snr 1247 density low_val.txt' \
+--train_path='dataset/ISBI_mergesnr_trainval_data/MICROTUBULE snr 1247 density low_train.txt' \
+--val_path='dataset/ISBI_mergesnr_trainval_data/MICROTUBULE snr 1247 density low_val.txt' \
 --use_tb=False \
 --no_cuda=False \
 --ckpt_save_root='./checkpoint' \
@@ -85,8 +85,8 @@ python train_tracking_eval.py \
 ```
 python train_tracking_eval.py \
 --trainfilename='MICROTUBULE snr 1247 density low' \
---train_path='dataset/ISBI_mergesnr_trainval/MICROTUBULE snr 1247 density low_train.txt' \
---val_path='dataset/ISBI_mergesnr_trainval/MICROTUBULE snr 1247 density low_val.txt' \
+--train_path='dataset/ISBI_mergesnr_trainval_data/MICROTUBULE snr 1247 density low_train.txt' \
+--val_path='dataset/ISBI_mergesnr_trainval_data/MICROTUBULE snr 1247 density low_val.txt' \
 --use_tb=False \
 --no_cuda=False \
 --ckpt_save_root='./checkpoint' \
@@ -99,8 +99,8 @@ python train_tracking_eval.py \
 ```
 python train_tracking_eval.py \
 --trainfilename='MICROTUBULE snr 1247 density low' \
---train_path='dataset/ISBI_mergesnr_trainval/MICROTUBULE snr 1247 density low_train.txt' \
---val_path='dataset/ISBI_mergesnr_trainval/MICROTUBULE snr 1247 density low_val.txt' \
+--train_path='dataset/ISBI_mergesnr_trainval_data/MICROTUBULE snr 1247 density low_train.txt' \
+--val_path='dataset/ISBI_mergesnr_trainval_data/MICROTUBULE snr 1247 density low_val.txt' \
 --use_tb=False \
 --no_cuda=False \
 --ckpt_save_root='./checkpoint' \
@@ -120,7 +120,7 @@ python train_tracking_eval.py \
 --test_path='dataset' \
 --testsnr_list 4 7 \
 --eval_save_path='./prediction/' \
---model_ckpt_path='./outputmodel_obtainresult/MICROTUBULE_snr_1247_density_low/20220406_11_18_51.chkpt' \
+--model_ckpt_path='./pretrained_model/MICROTUBULE_snr_1247_density_low/20220406_11_18_51.chkpt' \
 --train False \
 --tracking True \
 --eval True
