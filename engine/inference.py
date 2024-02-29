@@ -137,7 +137,9 @@ def make_tracklets(established_track, detection_total, this_frame, end_frame, Pa
             SIG = True
             for frame_ind__ in frame_indnext_list:
                 newnamelist = []
-                for tobe_extlabel in nodenamelist: 
+                for tobe_extlabel in nodenamelist:
+                    
+                    # confirm the current position
                     thisnodedata = tree.get_node(tobe_extlabel).data
                     if thisnodedata[-1] == -1:
                         parentnodelabel = tobe_extlabel
@@ -158,6 +160,7 @@ def make_tracklets(established_track, detection_total, this_frame, end_frame, Pa
                     numb = 0
                     neednull = 1
 
+                    # extend node using near position
                     det_id_4cand = []
                     for ppos in np_re: 
                         det_id_4cand.append(int(ppos[-2]))
@@ -172,6 +175,8 @@ def make_tracklets(established_track, detection_total, this_frame, end_frame, Pa
                             )
                         if numb == Near-neednull:
                             break
+                    
+                    # if need dumn detections, add them
                     if numb < Near-neednull:
                         neednull = Near-numb
 
@@ -188,7 +193,9 @@ def make_tracklets(established_track, detection_total, this_frame, end_frame, Pa
                     if SIG:
                         det_id_4cand_reserve = det_id_4cand.copy()
                         SIG = False
+                # all node of one depth
                 nodenamelist = newnamelist.copy()
+            # convert to list
             all_candidate = []
             paths_leaves = [path_[1:] for path_ in tree.paths_to_leaves()]
             for onepath in paths_leaves:
@@ -197,6 +204,7 @@ def make_tracklets(established_track, detection_total, this_frame, end_frame, Pa
                     onepath_data.append(tree.get_node(onepos).data)
                 all_candidate.append(onepath_data)
             
+            # Check all items are different
             if convert_one_track[-1][3] < (end_frame-(Cand-1)):
                 str_candlist = [str(_) for _ in all_candidate]
                 assert len(str_candlist) == len(set(str_candlist)), print(f'Warning: Generated candidate duplicates! \

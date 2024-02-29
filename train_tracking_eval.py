@@ -58,12 +58,12 @@ def parse_args_():
 
     # output and record
     # parser.add_argument('--output_dir', type=str, default=outputmodel_path)
-    parser.add_argument('--use_tb', default=True)
+    parser.add_argument('--use_tb', default=False, action='store_true')
     parser.add_argument('--save_mode', type=str, choices=['all', 'best'], default='best')
     parser.add_argument('--ckpt_save_root', type=str, default='./checkpoint')
 
     # device
-    parser.add_argument('--no_cuda', default = False)
+    parser.add_argument('--no_cuda', default=False, action='store_true')
     
     # test params
     # data params

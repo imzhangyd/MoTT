@@ -70,8 +70,7 @@ python train_tracking_eval.py \
 --trainfilename='MICROTUBULE snr 1247 density low' \
 --train_path='dataset/ISBI_mergesnr_trainval_data/MICROTUBULE snr 1247 density low_train.txt' \
 --val_path='dataset/ISBI_mergesnr_trainval_data/MICROTUBULE snr 1247 density low_val.txt' \
---use_tb=False \
---no_cuda=False \
+--use_tb \
 --ckpt_save_root='./checkpoint' \
 --test_path='dataset' \
 --testsnr_list 4 7 \
@@ -87,8 +86,7 @@ python train_tracking_eval.py \
 --trainfilename='MICROTUBULE snr 1247 density low' \
 --train_path='dataset/ISBI_mergesnr_trainval_data/MICROTUBULE snr 1247 density low_train.txt' \
 --val_path='dataset/ISBI_mergesnr_trainval_data/MICROTUBULE snr 1247 density low_val.txt' \
---use_tb=False \
---no_cuda=False \
+--use_tb \
 --ckpt_save_root='./checkpoint' \
 --train
 ```
@@ -99,8 +97,7 @@ python train_tracking_eval.py \
 --trainfilename='MICROTUBULE snr 1247 density low' \
 --train_path='dataset/ISBI_mergesnr_trainval_data/MICROTUBULE snr 1247 density low_train.txt' \
 --val_path='dataset/ISBI_mergesnr_trainval_data/MICROTUBULE snr 1247 density low_val.txt' \
---use_tb=False \
---no_cuda=False \
+--use_tb \
 --ckpt_save_root='./checkpoint' \
 --test_path='dataset' \
 --testsnr_list 4 7 \
@@ -113,7 +110,6 @@ python train_tracking_eval.py \
 ```
 python train_tracking_eval.py \
 --trainfilename='MICROTUBULE snr 1247 density low' \
---no_cuda=False \
 --test_path='dataset' \
 --testsnr_list 4 7 \
 --eval_save_path='./prediction/' \
@@ -126,7 +122,6 @@ python train_tracking_eval.py \
 ```
 python train_tracking_eval.py \
 --trainfilename='MICROTUBULE snr 1247 density low' \
---no_cuda=False \
 --test_path='dataset' \
 --testsnr_list 4 7 \
 --eval_save_path='./prediction/' \
