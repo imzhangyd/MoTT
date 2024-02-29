@@ -26,16 +26,13 @@ cd MoTT
  pip install -r requirements.txt
  ```
 
-
-
-
-## Dataset and pretrained model
-Download the dataset and pretained model by https://drive.google.com/file/d/1-9hf-8kj1k2NpnquobDP29SZgNZ9cSm5/view?usp=drivesdk. And make the code structure like this:
+### Dataset and pretrained model
+Download the dataset and pretained model by https://drive.google.com/drive/folders/1-0mp2tQ3YXu4wHK3GbboI-ombeWpYdzC?usp=sharing. And make the code structure like this:
 
 ```
 |-- MoTT  
 `-- |-- dataset
-    `-- |-- 20220406_exp_mergesnr_trainTFT # Used for training
+    `-- |-- ISBI_mergesnr_trainval_data # Used for training
         |    |-- MICROTUBULE snr 1247 density high_train.txt
         |    |-- MICROTUBULE snr 1247 density high_val.txt
         |    |-- MICROTUBULE snr 1247 density low_train.txt
@@ -51,14 +48,107 @@ Download the dataset and pretained model by https://drive.google.com/file/d/1-9h
         |    |-- MICROTUBULE snr 4 density low.xml
         |    |-- MICROTUBULE snr 2 density low.xml
         |    ... ...
-    `-- outputmodel_obtainresult    # our pretrained model checkpoint
+    `-- pretrained_model    # our pretrained model checkpoint
     `-- src    # tracking performance evaluation java code
     `-- transformer
+    `-- engine
+        |    |-- inference.py
+        |    |-- trainval.py
     `-- Dataset.py    # dataset class when train
     `-- Dataset_match.py    # dataset class when prediction
     `-- traickingPerformanceEvaluation.jar    # tracking performance evaluation tool
-    `-- train_test.py
+    `-- utils.py
+    `-- train_tracking_eval.py
+    `-- tracking.py
+    `-- eval.py
 ```
+
+### Example
+1. Train, tracking and evaluation.
+```
+python train_tracking_eval.py \
+--trainfilename='MICROTUBULE snr 1247 density low' \
+--train_path='dataset/ISBI_mergesnr_trainval/MICROTUBULE snr 1247 density low_train.txt' \
+--val_path='dataset/ISBI_mergesnr_trainval/MICROTUBULE snr 1247 density low_val.txt' \
+--use_tb=False \
+--no_cuda=False \
+--ckpt_save_root='./checkpoint' \
+--test_path='dataset' \
+--testsnr_list 4 7 \
+--eval_save_path='./prediction/' \
+--train True \
+--tracking True \
+--eval True
+```
+
+2. Train only, no tracking and evaluation.
+```
+python train_tracking_eval.py \
+--trainfilename='MICROTUBULE snr 1247 density low' \
+--train_path='dataset/ISBI_mergesnr_trainval/MICROTUBULE snr 1247 density low_train.txt' \
+--val_path='dataset/ISBI_mergesnr_trainval/MICROTUBULE snr 1247 density low_val.txt' \
+--use_tb=False \
+--no_cuda=False \
+--ckpt_save_root='./checkpoint' \
+--train True \
+--tracking False \
+--eval False
+```
+
+3. Train and tracking, no evaluation
+```
+python train_tracking_eval.py \
+--trainfilename='MICROTUBULE snr 1247 density low' \
+--train_path='dataset/ISBI_mergesnr_trainval/MICROTUBULE snr 1247 density low_train.txt' \
+--val_path='dataset/ISBI_mergesnr_trainval/MICROTUBULE snr 1247 density low_val.txt' \
+--use_tb=False \
+--no_cuda=False \
+--ckpt_save_root='./checkpoint' \
+--test_path='dataset' \
+--testsnr_list 4 7 \
+--eval_save_path='./prediction/' \
+--train True \
+--tracking True \
+--eval False
+```
+
+4. Tracking using pretrained checkpoint and evaluation
+```
+python train_tracking_eval.py \
+--trainfilename='MICROTUBULE snr 1247 density low' \
+--no_cuda=False \
+--test_path='dataset' \
+--testsnr_list 4 7 \
+--eval_save_path='./prediction/' \
+--model_ckpt_path='./outputmodel_obtainresult/MICROTUBULE_snr_1247_density_low/20220406_11_18_51.chkpt' \
+--train False \
+--tracking True \
+--eval True
+```
+
+5. Tracking using the pretrained checkpoint, no evaluation
+```
+python train_tracking_eval.py \
+--trainfilename='MICROTUBULE snr 1247 density low' \
+--no_cuda=False \
+--test_path='dataset' \
+--testsnr_list 4 7 \
+--eval_save_path='./prediction/' \
+--model_ckpt_path='./pretrained_model/MICROTUBULE_snr_1247_density_low/20220406_11_18_51.chkpt' \
+--train False \
+--tracking True \
+--eval False
+```
+
+6. Evaluation only
+```
+python eval.py \
+--GTxmlpath='./dataset/ground_truth/MICROTUBULE snr 7 density low.xml' \
+--pred_xmlpath='./prediction/......'
+
+```
+
+
 
 ## Cite this paper
 ```
