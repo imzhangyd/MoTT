@@ -33,7 +33,7 @@ def parse_args_():
     parser.add_argument('--near',type=int,default=5)
 
     # device
-    parser.add_argument('--no_cuda', default = False)
+    parser.add_argument('--no_cuda', default=False, action='store_true')
     
     # data path
     parser.add_argument('--test_path', type=str, default='dataset/deepblink_det/MICROTUBULE snr 7 density low.xml')
