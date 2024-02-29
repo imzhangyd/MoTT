@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from transformer.Models import Transformer
-
+import pandas as pd
 
 __author__ = "Yudong Zhang"
 
@@ -69,4 +69,40 @@ def load_model(g_opt, device):
         dropout=opt.dropout).to(device)
     transformer.load_state_dict(checkpoint['model'])
     print('[Info] Trained model state loaded.')
-    return transformer 
+    return transformer
+
+
+def resultcsv_2xml(xmlfilepath, output_csv_pa, testfilename):
+
+    result_csv = pd.read_csv(output_csv_pa)
+
+    snr = testfilename.split(' ')[2]
+    dens = testfilename.split(' ')[-1]
+    scenario = testfilename.split(' ')[0]
+    method= '_MoTT'
+    thrs = 0
+    
+    t_trackid = list(set(result_csv['trackid']))
+    # csv to xml
+    with open(xmlfilepath, "w+") as output:
+        output.write('<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n')
+        output.write('<root>\n')
+        output.write('<TrackContestISBI2012 SNR="' + str(
+            snr) + '" density="' + dens + '" scenario="' + scenario + \
+                    '" ' + method + '="' + str(thrs) + '">\n')
+        
+        for trackid in t_trackid:
+            thistrack = result_csv[result_csv['trackid']==trackid]
+            if len(thistrack) > 1:
+                thistrack.sort_values("frame",inplace=True)
+                thistrack_np = thistrack.values
+
+                output.write('<particle>\n')
+                for pos in thistrack_np:
+                    output.write('<detection t="' + str(int(pos[-1])) +
+                                '" x="' + str(pos[2]) +
+                                '" y="' + str(pos[3]) + '" z="0"/>\n')
+                output.write('</particle>\n')
+        output.write('</TrackContestISBI2012>\n')
+        output.write('</root>\n')
+        output.close()

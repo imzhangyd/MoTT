@@ -97,7 +97,7 @@ def make_tracklets(established_track, detection_total, this_frame, end_frame, Pa
     end_frame: int, the last frame number
 
     Past: int, the livetracklet length
-    Near: int, the detection number to select at each depth, equals (node number - 1) at each depth
+    Near: int, the detection number to select at each depth, node number at each depth
     Cand: int, the depth of tree
     '''
 
@@ -213,15 +213,17 @@ def make_tracklets(established_track, detection_total, this_frame, end_frame, Pa
     return one_frame_match_list
 
 
-def tracking(input_detxml,output_trackcsv,model_path,fract,Past,Cand,Near):
+def tracking(input_detxml,output_trackcsv,model_path,fract,Past,Cand,Near,no_cuda=False):
 
     print('[Info] Start tracking {}'.format(time.strftime('%Y%m%d_%H_%M_%S',time.localtime(int(round(time.time()*1000))/1000))))
 
     # prepare model
     opt = {}
     opt['model'] = model_path
-    # device = 'cpu'
-    device = 'cuda'
+    if not no_cuda:
+        device = 'cuda'
+    else:
+        device = 'cpu'
     transformer = load_model(opt, device)
     transformer.eval()
 
@@ -248,7 +250,8 @@ def tracking(input_detxml,output_trackcsv,model_path,fract,Past,Cand,Near):
 
     this_frame = start_frame
     while(this_frame<end_frame):
-        print('[Info] Process Frame {}-{}'.format(this_frame,this_frame+1))
+        if this_frame%20 == 0:
+            print('[Info] Process Frame {}-{}'.format(this_frame,this_frame+1))
 
         this_det = detection_total[detection_total['frame'] == this_frame]
         next_det = detection_total[detection_total['frame'] == this_frame + 1]

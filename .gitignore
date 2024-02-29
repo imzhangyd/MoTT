@@ -1,5 +1,6 @@
 dataset/
-outputmodel_obtainresult/
-230213**/
+pretrained_model/
+checkpoint/
+prediction/
 __pycache__/
 **/__pycache__/

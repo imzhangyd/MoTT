@@ -4,6 +4,15 @@ import torch.nn as nn
 import numpy as np
 import time
 import os
+import torch
+import torch.optim as optim
+import random
+
+from transformer.Models import Transformer
+from transformer.Optim import ScheduledOptim
+
+
+from Dataset import func_getdataloader
 
 
 __author__ = "Yudong Zhang"
@@ -111,16 +120,6 @@ def train(model, training_data, traindata_len, validation_data,valdata_len, opti
         from torch.utils.tensorboard import SummaryWriter
         tb_writer = SummaryWriter(log_dir=os.path.join(opt.output_dir, 'tensorboard/'+nowname))
 
-        log_param = os.path.join(opt.output_dir, nowname+'.log')
-        thisfold = open(log_param,'a')
-        thisfold.write('n_layer:{}\n'.format(opt.n_layers))
-        thisfold.write('n_head:{}\n'.format(opt.n_head))
-        thisfold.write('d_k/v:{}\n'.format(opt.d_k))
-        thisfold.write('ffn_inner_d:{}\n'.format(opt.d_inner_hid))
-        thisfold.write('warmup:{}\n'.format(opt.n_warmup_steps))
-        thisfold.write('batchsize:{}\n'.format(opt.batch_size))
-        thisfold.close()
-
 
     log_train_file = os.path.join(opt.output_dir, 'train.log')
     log_valid_file = os.path.join(opt.output_dir, 'valid.log')
@@ -202,3 +201,56 @@ def train(model, training_data, traindata_len, validation_data,valdata_len, opti
             tb_writer.add_scalar('learning_rate', lr, epoch_i)
 
 
+
+def trainval(opt):
+
+    opt.d_word_vec = opt.d_model
+
+    # For reproducibility
+    if opt.seed is not None:
+        torch.manual_seed(opt.seed)
+        torch.backends.cudnn.benchmark = False
+        np.random.seed(opt.seed)
+        random.seed(opt.seed)
+
+    if not opt.output_dir:
+        print('No experiment result will be saved.')
+        raise
+    if not os.path.exists(opt.output_dir):
+        os.makedirs(opt.output_dir)
+    
+    if not opt.no_cuda:
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
+
+    print('[Info] Initialize dataLoader')
+    batch_size = opt.batch_size
+    ins_loader_train,traindata = func_getdataloader(txtfile=opt.train_path, batch_size=batch_size, shuffle=True, num_workers=16)
+    ins_loader_val,valdata = func_getdataloader(txtfile=opt.val_path, batch_size=batch_size, shuffle=True, num_workers=16)
+    print('\tTraining data number:{}'.format(len(traindata)))
+    print('\tValidation data number:{}'.format(len(valdata)))
+
+    print('[Info] Initialize transformer')
+    transformer = Transformer(
+        n_passed = opt.len_established,
+        n_future = opt.len_future,
+        n_candi = opt.num_cand,
+        n_position = opt.n_position,
+        d_k=opt.d_k,
+        d_v=opt.d_v,
+        d_model=opt.d_model,
+        d_word_vec=opt.d_word_vec,
+        d_inner=opt.d_inner_hid,
+        n_layers=opt.n_layers,
+        n_head=opt.n_head,
+        dropout=opt.dropout)
+    transformer_ins = transformer.to(device)
+
+    print('[Info] Initialize optimizer')
+    optimizer = ScheduledOptim(
+        optim.Adam(transformer_ins.parameters(), betas=(0.9, 0.98), eps=1e-09),
+        opt.lr_mul, opt.d_model, opt.n_warmup_steps)
+    
+    print('[Info] Start train')
+    train(transformer_ins, ins_loader_train,len(traindata), ins_loader_val,len(valdata), optimizer, device, opt)
