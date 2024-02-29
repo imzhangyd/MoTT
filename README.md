@@ -51,10 +51,16 @@ Download the dataset and pretained model by https://drive.google.com/drive/folde
     `-- pretrained_model    # our pretrained model checkpoint
     `-- src    # tracking performance evaluation java code
     `-- transformer
+    `-- engine
+        |    |-- inference.py
+        |    |-- trainval.py
     `-- Dataset.py    # dataset class when train
     `-- Dataset_match.py    # dataset class when prediction
     `-- traickingPerformanceEvaluation.jar    # tracking performance evaluation tool
-    `-- train_test.py
+    `-- utils.py
+    `-- train_tracking_eval.py
+    `-- tracking.py
+    `-- eval.py
 ```
 
 ### Example
@@ -128,7 +134,7 @@ python train_tracking_eval.py \
 --test_path='dataset' \
 --testsnr_list 4 7 \
 --eval_save_path='./prediction/' \
---model_ckpt_path='./outputmodel_obtainresult/MICROTUBULE_snr_1247_density_low/20220406_11_18_51.chkpt' \
+--model_ckpt_path='./pretrained_model/MICROTUBULE_snr_1247_density_low/20220406_11_18_51.chkpt' \
 --train False \
 --tracking True \
 --eval False
