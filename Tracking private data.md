@@ -5,14 +5,14 @@ Assume you have a image sequence to track particles in it. First detect particle
 We use [DL_Particle_Detection](https://github.com/imzhangyd/DL_Particle_Detection.git) to detect, and [MoTT](https://github.com/imzhangyd/MoTT.git) to track.
 
 ## Example 1: An image sequence without detection labels and track labels.
-### 1.Image data preparation
+### 1. Image data preparation
 As introduced in [MoTT
 /DATASET.md](https://github.com/imzhangyd/MoTT/blob/main/DATASET.md), we download the challenge image. 
 
-### 2.Detection code preparation
+### 2. Detection code preparation
 Install DL_Particle_Detection according to the [Installation](https://github.com/imzhangyd/DL_Particle_Detection/blob/main/README.md). Download the pretrained deepBlink model checkpoints at [link](https://drive.google.com/drive/folders/1W93aOc_rCUnCS4D1ZFBSN4YJa-va-8hN).
 
-### 3.Detect particles
+### 3. Detect particles
 ```
 python infer_one_thre_onlypred.py \
 --test_datapath='/data/ldap_shared/synology_shared/zyd/data/20220611_detparticle/challenge/MICROTUBULE snr 7 density low/' \
@@ -20,14 +20,14 @@ python infer_one_thre_onlypred.py \
 --exp_name='MICROTUBULE_SNR7_densitylow_deepBlink'
 ```
 
-### 4.Detection result preparation for track
+### 4. Detection result preparation for track
 ```
 python utils/detcsv2xml.py \
 --det_folder='./Log/20240301_11_12_50_MICROTUBULE_SNR7_deepBlink_eval/prediction_0.5' \
 --detfor_track='./detfor_track'
 ```
 
-### 5.Tracking code preparation
+### 5. Tracking code preparation
 Install MoTT according to the [Installation](https://github.com/imzhangyd/MoTT/blob/main/README.md). Download the pretrained MoTT model checkpoint at [link](https://drive.google.com/drive/folders/1-0mp2tQ3YXu4wHK3GbboI-ombeWpYdzC?usp=sharing).
 
 Make the directory like this:
@@ -37,7 +37,7 @@ Make the directory like this:
     `-- MoTT
 ```
 
-### 6.Tracking
+### 6. Tracking
 ```
 # cd MoTT
 CUDA_VISIBLE_DEVICES=2 python tracking.py \
@@ -46,7 +46,7 @@ CUDA_VISIBLE_DEVICES=2 python tracking.py \
 --eval_save_path='./prediction/'
 ```
 
-### 7.Visualize tracks
+### 7. Visualize tracks
 ```
 python vis_tracks.py \
 --imgfolder='/data/ldap_shared/synology_shared/zyd/data/20220611_detparticle/challenge/MICROTUBULE snr 7 density low' \
