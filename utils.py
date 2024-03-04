@@ -2,6 +2,8 @@ import numpy as np
 import torch
 from transformer.Models import Transformer
 import pandas as pd
+import argparse
+
 
 __author__ = "Yudong Zhang"
 
@@ -72,13 +74,17 @@ def load_model(g_opt, device):
     return transformer
 
 
-def resultcsv_2xml(xmlfilepath, output_csv_pa, testfilename):
+def resultcsv_2xml(xmlfilepath, output_csv_pa, testfilename=None):
 
     result_csv = pd.read_csv(output_csv_pa)
-
-    snr = testfilename.split(' ')[2]
-    dens = testfilename.split(' ')[-1]
-    scenario = testfilename.split(' ')[0]
+    if testfilename:
+        snr = testfilename.split(' ')[2]
+        dens = testfilename.split(' ')[-1]
+        scenario = testfilename.split(' ')[0]
+    else:
+        snr=0
+        dens='none'
+        scenario='none'
     method= '_MoTT'
     thrs = 0
     
@@ -106,3 +112,18 @@ def resultcsv_2xml(xmlfilepath, output_csv_pa, testfilename):
         output.write('</TrackContestISBI2012>\n')
         output.write('</root>\n')
         output.close()
+
+
+
+if __name__=='__main__':
+
+    parser = argparse.ArgumentParser()
+    
+
+    parser.add_argument('--movie_name', type=str, default=None)
+    parser.add_argument('--pred_csvpath', type=str, default='./prediction/20240304_09_44_18/track_result.csv')
+    parser.add_argument('--save_xmlpath', type=str, default='./prediction/20240304_09_44_18/track_result.xml')
+
+    opt = parser.parse_args()
+
+    resultcsv_2xml(opt.save_xmlpath, opt.pred_csvpath, opt.movie_name)

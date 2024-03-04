@@ -9,7 +9,7 @@ def parse_args_():
     parser = argparse.ArgumentParser()
     
     parser.add_argument('--GTxmlpath', type=str, default='dataset/ground_truth/MICROTUBULE snr 7 density mid.xml')
-    parser.add_argument('--pred_xmlpath', type=str, default='dataset/ground_truth/MICROTUBULE snr 7 density mid.xml')   
+    parser.add_argument('--pred_xmlpath', type=str, default='dataset/ground_truth/MICROTUBULE snr 7 density mid.xml')
 
     opt = parser.parse_args()
     return opt

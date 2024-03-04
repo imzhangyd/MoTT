@@ -75,3 +75,7 @@ if __name__ == '__main__':
         Near=near,
         no_cuda=opt.no_cuda
         )
+    
+    xmlfilepath = output_csv_pa.replace('.csv','.xml')
+    resultcsv_2xml(xmlfilepath, output_csv_pa)
+

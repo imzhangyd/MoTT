@@ -111,12 +111,13 @@ def eval_epoch(model, validation_data, device, opt):
 def train(model, training_data, traindata_len, validation_data,valdata_len, optimizer, device, opt):
     ''' Start training '''
 
+    now = int(round(time.time()*1000))
+    nowname = time.strftime('%Y%m%d_%H_%M_%S',time.localtime(now/1000))
     # Use tensorboard to plot curves, e.g. perplexity, accuracy, learning rate
     if opt.use_tb:
         print("[Info] Use Tensorboard")
 
-        now = int(round(time.time()*1000))
-        nowname = time.strftime('%Y%m%d_%H_%M_%S',time.localtime(now/1000))
+        
         from torch.utils.tensorboard import SummaryWriter
         tb_writer = SummaryWriter(log_dir=os.path.join(opt.output_dir, 'tensorboard/'+nowname))
 
