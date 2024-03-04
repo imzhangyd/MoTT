@@ -56,11 +56,16 @@ Download the dataset and pretained model by https://drive.google.com/drive/folde
         |    |-- trainval.py
     `-- Dataset.py    # dataset class when train
     `-- Dataset_match.py    # dataset class when prediction
+    `-- generate_trainvaldata.py    # generate trainval data from original xml file
     `-- traickingPerformanceEvaluation.jar    # tracking performance evaluation tool
     `-- utils.py
     `-- train_tracking_eval.py
     `-- tracking.py
     `-- eval.py
+    `-- vis_tracks.py    # vis tracking results
+    ... ...
+
+
 ```
 
 ### Example
