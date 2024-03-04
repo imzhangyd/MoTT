@@ -5,6 +5,9 @@ MoTT is the official repository of the paper "[A Motion Transformer for Single P
 ## Environment
 The code is developed using python 3.7.3 on Ubuntu 18.04. NVIDIA GPUs are needed. The code is developed and tested using 1 NVIDIA GeForce RTX 2080 Ti card.
 
+## Detect and tracking on your own data.
+Refer to [Tracking private data.md](https://github.com/imzhangyd/MoTT/blob/main/Tracking%20private%20data.md).
+
 ## Quick Start
 ### Installation
 1. Create a virtual environment
