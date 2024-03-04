@@ -12,16 +12,18 @@ The code is developed using python 3.7.3 on Ubuntu 18.04. NVIDIA GPUs are needed
 conda create -n mott python==3.7.3 -y
 conda activate mott
 ```
-2. Install pytorch==1.8.0+cu111 torchvision==0.9.0+cu111
+2. Install Gurobi solver.
+Refer to [link](https://zhuanlan.zhihu.com/p/79524375).  
+3. Install pytorch==1.8.0+cu111 torchvision==0.9.0+cu111
 ```
 pip install torch==1.8.0+cu111 torchvision==0.9.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html
 ```
-3. Clone this repo
+4. Clone this repo
 ```
 git clone https://github.com/imzhangyd/MoTT.git
 cd MoTT
 ```
-4. Install dependencies:
+5. Install dependencies:
  ```
  pip install -r requirements.txt
  ```
