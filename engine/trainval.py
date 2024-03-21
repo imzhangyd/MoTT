@@ -8,11 +8,11 @@ import torch
 import torch.optim as optim
 import random
 
-from transformer.Models import Transformer
+from transformer.Models import Transformer, Transformer_sep_pred_wocusum
 from transformer.Optim import ScheduledOptim
 
 
-from Dataset import func_getdataloader
+from Dataset_oridif import func_getdataloader_oridif
 
 
 __author__ = "Yudong Zhang"
@@ -40,9 +40,12 @@ def train_epoch(model, training_data, optimizer, opt, device, smoothing):
 
         # forward
         optimizer.zero_grad()
-        pred_shift,pred_prob = model(src_seq, trg_seq) 
+        pred_shift,pred_prob = model(src_seq, trg_seq)
         loss_prob = Loss_func(pred_prob,label_prob)
-        loss_dist = Loss_func_dist(pred_shift,label_shift)
+        # loss_dist = Loss_func_dist(pred_shift,label_shift)
+        loss_dist = Loss_func_dist(
+            pred_shift[(label_shift[:,:,-1]>0)][:,:-1],
+            label_shift[(label_shift[:,:,-1]>0)][:,:-1]) 
         loss = loss_prob+loss_dist
 
         loss.backward()
@@ -62,6 +65,71 @@ def train_epoch(model, training_data, optimizer, opt, device, smoothing):
         total_accuracy_5 += accuracy5
 
     return total_loss_prob,total_loss_dist,total_loss,total_accuracy,total_accuracy_5
+
+
+def eval_epoch_calabsdist(model, validation_data, device, opt,datamean,datastd):
+    ''' Epoch operation in evaluation phase '''
+
+    model.eval()
+    total_loss, total_loss_prob,total_loss_dist = 0, 0, 0
+    total_absdist = 0
+    total_accuracy = 0
+    total_accuracy_5 = 0
+
+    desc = '  - (Validation) '
+    Loss_func = nn.CrossEntropyLoss()
+    # Loss_func = nn.BCELoss()
+    Loss_func_dist = nn.MSELoss()
+
+    with torch.no_grad():
+        for batch in tqdm(validation_data, mininterval=2, desc=desc, leave=False):
+
+            # prepare data
+            src_seq = batch[0].float().to(device)
+            trg_seq = batch[1].float().to(device)
+            label_shift = batch[2].float().to(device)#.cumsum(dim=-2)
+            # label_shift[:,:,-1] = 1
+            label_prob = batch[3].to(device)
+            
+
+            # forward
+            pred_shift,pred_prob = model(src_seq, trg_seq) #前向推理 希望输入前 和 候选 输出cost矩阵
+            # replace the pred with last shift
+            # pred_shift = torch.cat((src_seq[:,-1:,:],src_seq[:,-1:,:]),1)
+            loss_prob = Loss_func(pred_prob,label_prob)
+            loss_dist = Loss_func_dist(
+                pred_shift[(label_shift[:,:,-1]>0)][:,:-1],
+                label_shift[(label_shift[:,:,-1]>0)][:,:-1])
+            loss = loss_prob+loss_dist
+            # loss = loss_prob
+            # if opt.cal_absdist:
+            pastabsseq = batch[-1][:,-1:,:]
+            predpos = pred_shift[:,:,:-1].cpu().numpy()*datastd.reshape(1,1,2)+ \
+                datamean.reshape(1,1,2) + pastabsseq[:,0:,:-1].numpy()
+            gtpos = label_shift[:,:,:-1].cpu().numpy()*datastd.reshape(1,1,2)+ \
+                datamean.reshape(1,1,2) + pastabsseq[:,0:,:-1].numpy()
+
+            absdist = Loss_func_dist(
+                torch.Tensor(predpos[(label_shift.cpu().numpy()[:,:,-1]>0)]),
+                torch.Tensor(gtpos[(label_shift.cpu().numpy()[:,:,-1]>0)])
+            )
+            total_absdist += absdist.item()*pred_shift.shape[0]
+                
+            total_loss_prob += loss_prob.item()*pred_shift.shape[0]
+            total_loss_dist += loss_dist.item()*pred_shift.shape[0]
+            total_loss += loss.item()*pred_shift.shape[0]
+            # 计算accuracy
+            pred_num = torch.argmax(pred_prob,1)
+            accracy = np.sum((pred_num==label_prob).cpu().numpy())
+            total_accuracy += accracy
+
+            up = (label_prob - label_prob%5)
+            down = up+5
+            accuracy5 = np.sum((((pred_num-up)>=0)&(((pred_num-down) <0))).cpu().numpy())
+            total_accuracy_5 += accuracy5
+
+    return total_loss_prob,total_loss_dist,total_loss,total_accuracy,total_accuracy_5,total_absdist
+
 
 
 def eval_epoch(model, validation_data, device, opt):
@@ -88,7 +156,10 @@ def eval_epoch(model, validation_data, device, opt):
             # forward
             pred_shift,pred_prob = model(src_seq, trg_seq)            
             loss_prob = Loss_func(pred_prob,label_prob)
-            loss_dist = Loss_func_dist(pred_shift,label_shift)
+            # loss_dist = Loss_func_dist(pred_shift,label_shift)
+            loss_dist = Loss_func_dist(
+                pred_shift[(label_shift[:,:,-1]>0)][:,:-1],
+                label_shift[(label_shift[:,:,-1]>0)][:,:-1])
             loss = loss_prob+loss_dist
 
 
@@ -108,6 +179,8 @@ def eval_epoch(model, validation_data, device, opt):
     return total_loss_prob,total_loss_dist,total_loss,total_accuracy,total_accuracy_5
 
 
+
+
 def train(model, training_data, traindata_len, validation_data,valdata_len, optimizer, device, opt):
     ''' Start training '''
 
@@ -120,7 +193,6 @@ def train(model, training_data, traindata_len, validation_data,valdata_len, opti
         
         from torch.utils.tensorboard import SummaryWriter
         tb_writer = SummaryWriter(log_dir=os.path.join(opt.output_dir, 'tensorboard/'+nowname))
-
 
     log_train_file = os.path.join(opt.output_dir, 'train.log')
     log_valid_file = os.path.join(opt.output_dir, 'valid.log')
@@ -203,6 +275,42 @@ def train(model, training_data, traindata_len, validation_data,valdata_len, opti
 
 
 
+
+def eval(model, validation_data,valdata_len, device, opt,dmean=None,dstd=None):
+    
+
+    log_valid_file = os.path.join(opt.output_dir, 'valid.log')
+
+    with open(log_valid_file, 'w') as log_vf:
+        log_vf.write('epoch,loss,accuracy\n')
+
+    def print_evalperformances(header, loss,distloss,valid_absdist,accu, start_time):
+        print('  - {header:12} loss: {loss:3.4f}, distloss: {distloss:3.4f},valid_absdist:{valid_absdist:3.4f}, accuracy: {accu:3.3f} %, '\
+              'elapse: {elapse:3.3f} min'.format(
+                  header=f"({header})", loss=loss, distloss = distloss,valid_absdist=valid_absdist,
+                  accu=100*accu, elapse=(time.time()-start_time)/60))
+
+    valid_losses = []
+    start = time.time()
+    valid_loss_prob,valid_loss_dist,valid_loss,valid_accuracy,valid_accuracy_5,valid_absdist = \
+        eval_epoch_calabsdist(model, validation_data, device, opt, dmean,dstd)
+    valid_loss_prob /= valdata_len
+    valid_loss_dist /= valdata_len
+    valid_loss /= valdata_len
+    valid_absdist /= valdata_len
+    # valid_ppl = math.exp(min(valid_loss, 100))
+    valid_accuracy_5 /= valdata_len
+    valid_acc = valid_accuracy/valdata_len
+    print_evalperformances('Validation', valid_loss,valid_loss_dist,valid_absdist,valid_acc, start)
+    valid_losses += [valid_loss]
+
+    with open(log_valid_file, 'a') as log_vf:
+        log_vf.write('{loss: 8.5f},{accu:3.3f}\n'.format(
+            loss=valid_loss,
+            accu=100*valid_acc))
+        
+
+
 def trainval(opt):
 
     opt.d_word_vec = opt.d_model
@@ -227,13 +335,17 @@ def trainval(opt):
 
     print('[Info] Initialize dataLoader')
     batch_size = opt.batch_size
-    ins_loader_train,traindata = func_getdataloader(txtfile=opt.train_path, batch_size=batch_size, shuffle=True, num_workers=16)
-    ins_loader_val,valdata = func_getdataloader(txtfile=opt.val_path, batch_size=batch_size, shuffle=True, num_workers=16)
+    ins_loader_train,traindata = func_getdataloader_oridif(
+        txtfile=opt.train_path, batch_size=batch_size, shuffle=True, \
+            num_workers=16,mean=opt.traindatamean,std=opt.traindatastd)
+    ins_loader_val,valdata = func_getdataloader_oridif(
+        txtfile=opt.val_path, batch_size=batch_size, shuffle=True, \
+            num_workers=16,mean=opt.traindatamean,std=opt.traindatastd)
     print('\tTraining data number:{}'.format(len(traindata)))
     print('\tValidation data number:{}'.format(len(valdata)))
 
     print('[Info] Initialize transformer')
-    transformer = Transformer(
+    transformer = Transformer_sep_pred_wocusum(
         n_passed = opt.len_established,
         n_future = opt.len_future,
         n_candi = opt.num_cand,
@@ -245,7 +357,8 @@ def trainval(opt):
         d_inner=opt.d_inner_hid,
         n_layers=opt.n_layers,
         n_head=opt.n_head,
-        dropout=opt.dropout)
+        dropout=opt.dropout,
+        inoutdim = opt.inoutdim)
     transformer_ins = transformer.to(device)
 
     print('[Info] Initialize optimizer')
@@ -255,3 +368,6 @@ def trainval(opt):
     
     print('[Info] Start train')
     train(transformer_ins, ins_loader_train,len(traindata), ins_loader_val,len(valdata), optimizer, device, opt)
+    traindatamean = traindata.mean
+    traindatastd = traindata.std
+    return traindatamean, traindatastd

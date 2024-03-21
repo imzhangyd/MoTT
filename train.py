@@ -1,5 +1,5 @@
 '''
-This script handles the training, tracking and evaluation.
+This script handles the training
 '''
 import glob
 import argparse
@@ -10,7 +10,7 @@ import subprocess
 from engine.trainval import trainval
 from engine.inference import tracking
 from utils import resultcsv_2xml
-
+import shutil
 
 __author__ = "Yudong Zhang"
 
@@ -29,12 +29,15 @@ def parse_args_():
     
     # train params
     # data params
-    parser.add_argument('--trainfilename', type=str, default='MICROTUBULE snr 1247 density low')
-    parser.add_argument('--train_path', default='dataset/ISBI_mergesnr_trainval_data/MICROTUBULE snr 1247 density low_train.txt')   
-    parser.add_argument('--val_path', default='dataset/ISBI_mergesnr_trainval_data/MICROTUBULE snr 1247 density low_val.txt')    
+    parser.add_argument('--trainfilename', type=str, default='MOT17_trainvalbox')
+    parser.add_argument('--train_path', default='dataset/MOT17_trainval_test/trainval_box_onefuture/past7_depth1_near5/merge_train.txt')   
+    parser.add_argument('--val_path', default='dataset/MOT17_trainval_test/trainval_box_onefuture/past7_depth1_near5/merge_val.txt')    
+
+    parser.add_argument('--traindatamean', nargs='+', type=int, default=[-3.8447242, -7.2373133, -2.3897965, -5.299531, -3.6751747, -10.802332, -2.909537, -7.12589, 803.7549, 403.8249, 774.43823, 836.82025, 314.45084, 494.85004,  62.86108, 179.01665])
+    parser.add_argument('--traindatastd',nargs='+', type=int, default=[110.6746 ,67.4468, 112.93308, 112.18339, 72.53153, 95.47296, 41.04576, 102.74431, 455.76172, 218.71327, 454.32388, 459.0247, 217.7225, 238.48856, 49.815372, 130.16364])
 
     parser.add_argument('--len_established',type=int,default=7) 
-    parser.add_argument('--len_future',type=int,default=2) 
+    parser.add_argument('--len_future',type=int,default=1) 
     parser.add_argument('--near',type=int,default=5)
 
     # network params
@@ -45,6 +48,7 @@ def parse_args_():
     parser.add_argument('--d_model', type=int, default=96*6)
     parser.add_argument('--d_inner_hid', type=int, default=96*6*2)
     parser.add_argument('--n_position',type=int,default=5000)
+    parser.add_argument('--inoutdim', type=int, default=17)
 
     # training params
      
@@ -74,7 +78,7 @@ if __name__ == '__main__':
 
     trainfilename = opt.trainfilename
 
-    assert trainfilename in opt.train_path and trainfilename in opt.val_path
+    # assert trainfilename in opt.train_path and trainfilename in opt.val_path
 
     # data param
     past = opt.len_established
@@ -93,7 +97,16 @@ if __name__ == '__main__':
     if not os.path.exists(outputmodel_path):
         os.makedirs(outputmodel_path)
     opt.output_dir = outputmodel_path
-    # save params
+    # save params and code
     save_args_to_file(opt, os.path.join(outputmodel_path,'param.txt'))
+    pyfilepath = os.path.abspath(__file__)
+    shutil.copy(pyfilepath,os.path.join(outputmodel_path,os.path.split(pyfilepath)[-1]))
+    shutil.copy(os.path.join(pyfilepath,'../engine/trainval.py'), os.path.join(outputmodel_path, 'trainval.py'))
     # train
-    trainval(opt)
+    traindatamean = trainval(opt)
+    traindatastd = trainval(opt)
+
+    with open(os.path.join(outputmodel_path,'param.txt'),'a') as f:
+        f.write(str(traindatamean))
+        f.write(str(traindatastd))
+    f.close()

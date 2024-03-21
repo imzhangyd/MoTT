@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from transformer.Models import Transformer
+from transformer.Models import Transformer, Transformer_sep_pred_wocusum
 import pandas as pd
 import argparse
 
@@ -39,14 +39,14 @@ def readXML(file):
 
 def find_near(pdcontent,x,y):
 
-    pdcontent = pdcontent.drop_duplicates(subset=['pos_x','pos_y'])
+    # pdcontent = pdcontent.drop_duplicates(subset=['pos_x','pos_y'])
     all_posi = pdcontent.values.tolist()
     dis_all_posi = []
     for thisframepos in all_posi:
         dis = (thisframepos[0]-x)**2 +(thisframepos[1]-y)**2
         dis_all_posi.append(thisframepos+[dis])
-    dis_all_posi_np = np.array(dis_all_posi)
-    a_arg = np.argsort(dis_all_posi_np[:,-1]) 
+    dis_all_posi_np = np.array(dis_all_posi).reshape(-1,len(all_posi[0])+1)
+    a_arg = np.argsort(dis_all_posi_np[:,-1])
     sortnp = dis_all_posi_np[a_arg.tolist()]
 
     return sortnp 
@@ -54,9 +54,9 @@ def find_near(pdcontent,x,y):
 
 def load_model(g_opt, device):
 
-    checkpoint = torch.load(g_opt['model']) 
+    checkpoint = torch.load(g_opt['model'])
     opt = checkpoint['settings']
-    transformer = Transformer(
+    transformer = Transformer_sep_pred_wocusum(
         n_passed = opt.len_established,
         n_future = opt.len_future,
         n_candi = opt.num_cand,
@@ -68,12 +68,25 @@ def load_model(g_opt, device):
         d_inner=opt.d_inner_hid,
         n_layers=opt.n_layers,
         n_head=opt.n_head,
-        dropout=opt.dropout).to(device)
+        dropout=opt.dropout,
+        inoutdim = opt.inoutdim).to(device)
     transformer.load_state_dict(checkpoint['model'])
     print('[Info] Trained model state loaded.')
     return transformer
 
 
+def getIdx(a):
+    co = a.unsqueeze(0)-a.unsqueeze(1)
+    uniquer = co.unique(dim=0)
+    out = []
+    for r in uniquer:
+        cover = torch.arange(a.size(0))
+        mask = r==0
+        idx = cover[mask]
+        out.append(idx)
+    return out
+
+    
 def resultcsv_2xml(xmlfilepath, output_csv_pa, testfilename=None):
 
     result_csv = pd.read_csv(output_csv_pa)

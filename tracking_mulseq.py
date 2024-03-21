@@ -39,7 +39,7 @@ def parse_args_():
     parser.add_argument('--no_cuda', default=False, action='store_true')
     
     # data path
-    parser.add_argument('--test_path', type=str, default='dataset/yolox_det_all/MOT17-02-FRCNN.csv')
+    parser.add_argument('--test_path', type=str, default='dataset/yolox_det_all')
     # model path
     parser.add_argument('--model_ckpt_path', type=str, default='./pretrained_model/MOT17_trainval/20221127_13_59_43.chkpt')
     # save path
@@ -49,7 +49,6 @@ def parse_args_():
 
     # vis process
     parser.add_argument('--vis',default=False, action='store_true')
-    parser.add_argument('--imageroot',type=str,default='./dataset/MOT17/train')
 
     # track threshold
     parser.add_argument('--track_high_thresh',type=float,default=0.6)
@@ -73,7 +72,7 @@ if __name__ == '__main__':
     now = int(round(time.time()*1000))
     nowname = time.strftime('%Y%m%d_%H_%M_%S',time.localtime(now/1000))
 
-    test_det_pa = opt.test_path
+    # test_det_pa = opt.test_path
     model_p = opt.model_ckpt_path
     # output_csv_pa = os.path.join(opt.eval_save_path, nowname, 'track_result.csv')
     os.makedirs(os.path.join(opt.eval_save_path, nowname))
@@ -88,50 +87,48 @@ if __name__ == '__main__':
     track_high_thresh = opt.track_high_thresh
     new_track_thresh = opt.new_track_thresh
 
+    for test_det_pa in glob.glob(os.path.join(opt.test_path,'**.csv')):
+        seq = os.path.split(test_det_pa)[1].split('.')[0]
+        output_csv_pa = os.path.join(opt.eval_save_path, nowname, seq+'_link.csv')
 
-    seq = os.path.split(test_det_pa)[1].split('.')[0]
-    output_csv_pa = os.path.join(opt.eval_save_path, nowname, seq+'_link.csv')
+        if '05' in seq or '06' in seq:
+            track_buffer = 14
+        elif '13' in seq or '14' in seq:
+            track_buffer = 25
+        else:
+            track_buffer = 30
 
-    if '05' in seq or '06' in seq:
-        track_buffer = 14
-    elif '13' in seq or '14' in seq:
-        track_buffer = 25
-    else:
-        track_buffer = 30
+        if '01' in seq:
+            track_high_thresh = 0.65
+        elif '06' in seq:
+            track_high_thresh = 0.65
+        elif '12' in seq:
+            track_high_thresh = 0.7
+        elif '14' in seq:
+            track_high_thresh = 0.67
 
-    if '01' in seq:
-        track_high_thresh = 0.65
-    elif '06' in seq:
-        track_high_thresh = 0.65
-    elif '12' in seq:
-        track_high_thresh = 0.7
-    elif '14' in seq:
-        track_high_thresh = 0.67
+        if opt.vis:
+            if not os.path.exists(os.path.join(opt.eval_save_path, nowname, seq)):
+                os.makedirs(os.path.join(opt.eval_save_path, nowname, seq))
 
-    if opt.vis:
-        assert os.path.exists(opt.imageroot)
-        if not os.path.exists(os.path.join(opt.eval_save_path, nowname, seq)):
-            os.makedirs(os.path.join(opt.eval_save_path, nowname, seq))
-
-    keep_track = tracking(
-        input_detfile=test_det_pa,
-        output_trackcsv=output_csv_pa,
-        model_path=model_p,
-        fract=opt.det_keep_rate,
-        Past=past,
-        Cand=cand,
-        Near=near,
-        track_buffer=opt.track_buffer,
-        new_track_thresh=opt.new_track_thresh,
-        track_high_thresh=opt.track_high_thresh,
-        track_low_thresh=opt.track_low_thresh,
-        mean_=opt.traindatamean,
-        std_=opt.traindatastd,
-        vis=opt.vis,
-        no_cuda=opt.no_cuda,
-        imagefolder=opt.imageroot
-        )
-    
-    # xmlfilepath = output_csv_pa.replace('.csv','.xml')
-    # resultcsv_2xml(xmlfilepath, output_csv_pa)
+        keep_track = tracking(
+            input_detfile=test_det_pa,
+            output_trackcsv=output_csv_pa,
+            model_path=model_p,
+            fract=opt.det_keep_rate,
+            Past=past,
+            Cand=cand,
+            Near=near,
+            track_buffer=opt.track_buffer,
+            new_track_thresh=opt.new_track_thresh,
+            track_high_thresh=opt.track_high_thresh,
+            track_low_thresh=opt.track_low_thresh,
+            mean_=opt.traindatamean,
+            std_=opt.traindatastd,
+            vis=opt.vis,
+            no_cuda=opt.no_cuda
+            )
+        
+        # xmlfilepath = output_csv_pa.replace('.csv','.xml')
+        # resultcsv_2xml(xmlfilepath, output_csv_pa)
 
