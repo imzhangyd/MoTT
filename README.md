@@ -91,20 +91,6 @@ And make the code structure like this:
                 |    |-- merge_val.txt
         `-- MOT17Labels
     `-- pretrained_model    # our pretrained model checkpoint
-    `-- src    # tracking performance evaluation java code
-    `-- transformer
-    `-- engine
-        |    |-- inference.py
-        |    |-- trainval.py
-    `-- Dataset.py    # dataset class when train
-    `-- Dataset_match.py    # dataset class when prediction
-    `-- generate_trainvaldata.py    # generate trainval data from original xml file
-    `-- traickingPerformanceEvaluation.jar    # tracking performance evaluation tool
-    `-- utils.py
-    `-- train_tracking_eval.py
-    `-- tracking.py
-    `-- eval.py
-    `-- vis_tracks.py    # vis tracking results
     ... ...
 
 ```
