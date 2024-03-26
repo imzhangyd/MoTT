@@ -1,4 +1,4 @@
-#汇总——可视化指定轨迹——颜色每帧保持
+#vis tracks along frames
 import glob
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -30,6 +30,8 @@ def parse_args_():
     parser.add_argument('--imgfolder', type=str, default='/data/ldap_shared/synology_shared/zyd/data/20220611_detparticle/challenge/MICROTUBULE snr 7 density low')
     parser.add_argument('--trackcsvpath', type=str, default='./prediction/20240301_15_25_56/track_result.csv')
     parser.add_argument('--vis_save', type=str, default='./prediction/20240301_15_25_56/track_vis')   
+    parser.add_argument('--img_fmt', type=str, default='**t{:03d}**.tif')
+    parser.add_argument('--vis_dot', default=False, action='store_true' )
 
     opt = parser.parse_args()
     return opt
@@ -53,8 +55,8 @@ if __name__ == '__main__':
         
         if fr%(int(result['frame'].values.max())+1//5) == 0:
             print(f'[Info] Visualize frame:{fr}')
-        
-        imgpath = glob.glob(os.path.join(imgfolder,'**t{:03d}**.tif'.format(fr)))
+        # if 'snr' in 
+        imgpath = glob.glob(os.path.join(imgfolder,opt.img_fmt.format(fr)))
         assert len(imgpath) == 1
 
         img = io.imread(imgpath[0])
@@ -70,8 +72,8 @@ if __name__ == '__main__':
             this_iddet = result[result['trackid']==the_id].sort_values('frame')
             this_iddet_near = this_iddet[(this_iddet['frame']<=fr)] #&(this_iddet['frame']>fr-10)
             plt.plot(this_iddet_near['pos_x'],this_iddet_near['pos_y'],linewidth=0.5,color=ID_color)
-            
-            plt.scatter([this_iddet_near['pos_x'].values[-1]],[this_iddet_near['pos_y'].values[-1]],color=ID_color, marker='o', edgecolors=ID_color, s=1,linewidths=1)
+            if opt.vis_dot:
+                plt.scatter([this_iddet_near['pos_x'].values[-1]],[this_iddet_near['pos_y'].values[-1]],color=ID_color, marker='o', edgecolors=ID_color, s=1,linewidths=1)
 
         plt.savefig(os.path.join(savefolder, '%03d.jpg'%fr), bbox_inches='tight',dpi=300,pad_inches=0.0)
         plt.close()
