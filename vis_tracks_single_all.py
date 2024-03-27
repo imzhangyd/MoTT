@@ -1,5 +1,5 @@
 '''
-visulize single tracks
+visulize randomly several single tracks
 '''
 import glob
 import pandas as pd
