@@ -39,6 +39,8 @@ def parse_args_():
     parser.add_argument('--test_path', type=str, default='dataset/deepblink_det/MICROTUBULE snr 7 density low.xml')
     # model path
     parser.add_argument('--model_ckpt_path', type=str, default='./pretrained_model/MICROTUBULE_snr_1247_density_low/20220406_11_18_51.chkpt')
+
+    parser.add_argument('--holdnum', type=int, default=1)
     # save path
     parser.add_argument('--eval_save_path', type=str, default='./prediction/')
 
@@ -73,7 +75,8 @@ if __name__ == '__main__':
         Past=past,
         Cand=cand,
         Near=near,
-        no_cuda=opt.no_cuda
+        no_cuda=opt.no_cuda,
+        holdnum=opt.holdnum
         )
     
     xmlfilepath = output_csv_pa.replace('.csv','.xml')

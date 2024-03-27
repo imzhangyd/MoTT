@@ -221,7 +221,7 @@ def make_tracklets(established_track, detection_total, this_frame, end_frame, Pa
     return one_frame_match_list
 
 
-def tracking(input_detxml,output_trackcsv,model_path,fract,Past,Cand,Near,no_cuda=False):
+def tracking(input_detxml,output_trackcsv,model_path,fract,Past,Cand,Near,no_cuda=False, holdnum=1):
 
     print('[Info] Start tracking {}'.format(time.strftime('%Y%m%d_%H_%M_%S',time.localtime(int(round(time.time()*1000))/1000))))
 
@@ -341,7 +341,7 @@ def tracking(input_detxml,output_trackcsv,model_path,fract,Past,Cand,Near,no_cud
                 thisid_HOLDnum = established_track_HOLDnum[established_track_HOLDnum.trackid == link_track_id].iloc[0,1]
                 thisid_pred_shift = pred_shift_id_pd[pred_shift_id_pd.trackid == link_track_id]
                 
-                if (thisid_HOLDnum <10) and (this_frame < end_frame-1) and (thisid_pred_shift.iloc[0,3]>pred_shift_id_pd['exist_flag'].mean()): 
+                if (thisid_HOLDnum <holdnum) and (this_frame < end_frame-1) and (thisid_pred_shift.iloc[0,3]>pred_shift_id_pd['exist_flag'].mean()): 
                     established_track_HOLDnum.loc[established_track_HOLDnum['trackid'] == link_track_id, 'HOLDnum'] = thisid_HOLDnum+1
                     thisid_track = established_track[established_track.trackid==link_track_id]
                     last_frame = thisid_track.iloc[-1,-1]
