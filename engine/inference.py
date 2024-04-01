@@ -25,7 +25,76 @@ from utils import load_model, readXML, find_near
 __author__ = "Yudong Zhang"
 
 
-def probability_maximization_solver(costs, trackid_list, detid_list):
+# pulp solver
+def probability_maximization_pulp_solver(costs,trackid_list,detid_list):
+    '''
+    costs: a numpy array (n * 3), look like [[cost0, trackid_0, detid_0], [cost1, trackid_1, detid_1],...]
+    trackid_list: trackid_0,trackid_1,...
+    detid_list: detid_0,detid_1,...
+    '''
+    # set variables 
+    varis=[]
+    for i in range(len(costs)):
+        if costs[i][2]==-1:
+            vari= str(costs[i][1]) + "_" + 'x'
+        else:
+            vari= str(costs[i][1]) + "_" + str(costs[i][2])
+        varis.append(vari)
+    mottVaris=[pulp.LpVariable(f'z_{i}',lowBound=0,upBound=1,cat=pulp.LpBinary) for i in varis]
+
+
+    # set objective
+    mottProDp=pulp.LpProblem("mottProDp",sense=pulp.const.LpMaximize)
+    ss=[]
+    for varIndex in range(len(mottVaris)):
+        s=mottVaris[varIndex] * costs[varIndex][0]
+        ss.append(s)
+    mottProDp += pulp.lpSum(ss), "Objective Function"
+
+    # set constraints
+    for j in trackid_list:
+        flag = False
+        exprc=[]
+        for cc in range(len(costs)): 
+             if costs[cc][1] == j: 
+                 flag = True
+                 exprc.append(mottVaris[cc])
+        if flag:
+            mottProDp += (pulp.lpSum(exprc)==1)
+
+
+    for j in detid_list:
+        exprcj=[]
+        flag = False
+        for cc in range(len(costs)): 
+             if costs[cc][2] == j: 
+                 flag = True
+                 exprcj.append(mottVaris[cc])
+        if flag:
+            mottProDp += pulp.lpSum(exprcj)<=1
+    
+    # set solver and optimize
+    pulp_dir = os.path.dirname(pulp.__file__)
+    solver = pulp.COIN_CMD(path=os.path.join(pulp_dir, 'solverdir/cbc/linux/64/cbc',msg=False))
+    mottProDp.solve(solver)
+
+    # analyze solution
+    solutions = []
+    for v in mottProDp.variables():
+        if v.varValue>0.5:
+            tempv=str(v)
+            sp1=tempv.split('_')[1]
+            sp2=tempv.split('_')[2]
+            if sp2=='x':
+                tempv='z_'+sp1+'_-1'
+                solutions.append(tempv)
+            else:
+                solutions.append(str(v))
+    return solutions
+
+
+# gurobi solver
+def probability_maximization_gurobi_solver(costs, trackid_list, detid_list):
     '''
     costs: a numpy array (n * 3), look like [[cost0, trackid_0, detid_0], [cost1, trackid_1, detid_1],...]
     '''
@@ -35,31 +104,31 @@ def probability_maximization_solver(costs, trackid_list, detid_list):
     model.Params.outputflag = 0
 
     # set variables
-    ro = []
+    ro = [] 
     for i in range(len(costs)):
-        ro.append(model.addVar(0.0, 1.0, 0.0, grb.GRB.BINARY,'z_' + str(costs[i][1]) + '_' + str(costs[i][2])))
+        ro.append(model.addVar(0.0, 1.0, 0.0, grb.GRB.BINARY,'z_' + str(costs[i][1]) + '_' + str(costs[i][2]))) 
     model.update()
- 
+    
     # set objective
     expr = grb.LinExpr()
     for i in range(len(ro)):
-        expr.add(ro[i], costs[i][0])
-    model.setObjective(expr, grb.GRB.MAXIMIZE)
+        expr.add(ro[i], costs[i][0]) 
+    model.setObjective(expr, grb.GRB.MAXIMIZE) 
 
     # set constraints
     nrConstraint = 0
     exprcs = []
-    for j in trackid_list:
+    for j in trackid_list: 
         exprc = grb.LinExpr()
         flag = False
         for cc in range(len(costs)): 
             if costs[cc][1] == j: 
                 exprc.add(ro[cc], 1.0)
                 flag = True
-        nrConstraint += 1
+        nrConstraint += 1 
         exprcs.append(exprc)
-        if flag:
-            model.addConstr(exprc, grb.GRB.EQUAL, 1.0, "c_" + str(nrConstraint))
+        if flag: 
+            model.addConstr(exprc, grb.GRB.EQUAL, 1.0, "c_" + str(nrConstraint)) 
 
     for j in detid_list:
         exprc = grb.LinExpr()
@@ -231,7 +300,7 @@ def make_tracklets(established_track, detection_total, this_frame, end_frame, Pa
 
 def tracking(input_detfile,output_trackcsv,model_path,fract,Past,Cand,Near,
              track_buffer=10,new_track_thresh=0.6, track_high_thresh=0.6, track_low_thresh=0.1,
-             mean_=None,std_=None,vis=False,no_cuda=False,imagefolder='./dataset/MOT17/train'):
+             mean_=None,std_=None,vis=False,no_cuda=False,imagefolder='./dataset/MOT17/train',solver_name='pulp'):
 
     print('[Info] Start tracking {}'.format(time.strftime('%Y%m%d_%H_%M_%S',time.localtime(int(round(time.time()*1000))/1000))))
 
@@ -380,7 +449,11 @@ def tracking(input_detfile,output_trackcsv,model_path,fract,Past,Cand,Near,
             for m in range(Near):
                 costlist.append([norm_pred_prob5[it][m], trackid_batch[it], cand5id_batch[it][m]]) #
 
-        solutions = probability_maximization_solver(costlist, trackid_batch, list(next_det['det_id']))
+        # solutions = probability_maximization_solver(costlist, trackid_batch, list(next_det['det_id']))
+        if solver_name == 'gurobi':
+            solutions = probability_maximization_gurobi_solver(costlist, trackid_batch, list(next_det['det_id']))
+        else:
+            solutions = probability_maximization_pulp_solver(costlist, trackid_batch, list(next_det['det_id']))
        
 
         # 4. process the solution and manage tracklet set
