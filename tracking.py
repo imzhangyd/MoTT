@@ -40,7 +40,7 @@ def parse_args_():
     # model path
     parser.add_argument('--model_ckpt_path', type=str, default='./pretrained_model/MICROTUBULE_snr_1247_density_low/20220406_11_18_51.chkpt')
 
-    parser.add_argument('--holdnum', type=int, default=1)
+    parser.add_argument('--holdnum', type=int, default=10)
     # save path
     parser.add_argument('--eval_save_path', type=str, default='./prediction/')
 

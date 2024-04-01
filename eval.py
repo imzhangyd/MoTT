@@ -22,11 +22,11 @@ if __name__ == '__main__':
     # prepare gt path, result path, and output path
     ref = opt.GTxmlpath
     can = opt.pred_xmlpath
-    out = can.replace('xml','txt')
+    out = can.replace('.xml','.txt')
 
     subprocess.call(
         ['java', '-jar', 'trackingPerformanceEvaluation.jar', 
-        '-r', ref, '-c', can,'out',out])
+        '-r', ref, '-c', can,'-o',out])
 
     print('[Info] Finish evaluating')
     print(f'Save file:{out}')
