@@ -1,104 +1,50 @@
-'''
-When you have only patial labels of tracks, and you have all the detections labels,
-you can use this file to generate train and val format files for training model. 
-
-'''
-
-from asyncio import tasks
 import numpy as np
 import random
 import glob
 from treelib import Node, Tree
+import pandas as pd
 import argparse
 import os
-import pandas as pd
 
 __author__ = "Yudong Zhang"
 
 
-def readXML(file):
-    with open(file) as f:
-        lines = f.readlines()
-    f.close()
-    poslist = []
-    p = 0
-    maxframe = 0
-    for i in range(len(lines)):
-        if '<particle>' in lines[i]:
-            posi = []
-        elif '<detection t=' in lines[i]:
-            ind1 = lines[i].find('"')
-            ind2 = lines[i].find('"', ind1 + 1)
-            t = float(lines[i][ind1 + 1:ind2])
-            ind1 = lines[i].find('"', ind2 + 1)
-            ind2 = lines[i].find('"', ind1 + 1)
-            x = float(lines[i][ind1 + 1:ind2])
-            ind1 = lines[i].find('"', ind2 + 1)
-            ind2 = lines[i].find('"', ind1 + 1)
-            y = float(lines[i][ind1 + 1:ind2])
-            ind1 = lines[i].find('"', ind2 + 1)
-            ind2 = lines[i].find('"', ind1 + 1)
-            z = float(lines[i][ind1 + 1:ind2])
-            if t > maxframe: maxframe = t
-            posi.append([x, y, t, z, float(p)])
-        elif '</particle>' in lines[i]:
-            p += 1
-            poslist.append(posi)
-    return poslist, maxframe
-
-
-
-def read_trackmatecsv(file):
-    thcsv = pd.read_csv(file, header=0,index_col=None)
-    maxframe = thcsv['FRAME'].values.max()
-    trackid = list(set(thcsv['TRACK_ID']))
+def readCSV(file):
+    thcsv = pd.read_csv(file)
+    maxframe = thcsv['frame'].values.max()
+    trackid = list(set(thcsv['ID']))
     poslist = []
     for t_id in trackid:
         posi = []
-        t_df = thcsv[thcsv['TRACK_ID']==t_id]
-        t_df = t_df.sort_values('FRAME')
+        t_df = thcsv[thcsv['ID']==t_id]
+        t_df = t_df.sort_values('frame')
         for i in range(len(t_df)):
-            x = t_df.iloc[i].loc['POSITION_X']
-            y = t_df.iloc[i].loc['POSITION_Y']
-            t = t_df.iloc[i].loc['FRAME']
+            x = t_df.iloc[i]['w_position']
+            y = t_df.iloc[i]['h_position']
+            t = t_df.iloc[i]['frame']
             z = 0.0
-            p = t_df.iloc[i].loc['TRACK_ID']
-            posi.append([x, y, t, z, float(p)])
+            p = t_df.iloc[i]['ID']
+            size = t_df.iloc[i]['size']
+            if 'intensity' in t_df.columns:
+                intensity = t_df.iloc[i]['intensity']
+            else:
+                intensity = size*50.0
+            posi.append([x, y, t, size, intensity, z, float(p)])
         poslist.append(posi)
     return poslist, maxframe
 
 
-def read_detnormalcsv(file):
-    thcsv = pd.read_csv(file, header=0,index_col=None)
-    maxframe = thcsv['frame'].values.max()
-    # trackid = list(set(thcsv['id']))
-    poslist = []
-    # for t_id in trackid:
-    posi = []
-    # t_df = thcsv[thcsv['TRACK_ID']==t_id]
-    thcsv = thcsv.sort_values('frame')
-    for i in range(len(thcsv)):
-        x = thcsv.iloc[i].loc['pos_x']
-        y = thcsv.iloc[i].loc['pos_y']
-        t = thcsv.iloc[i].loc['frame']
-        z = 0.0
-        p = 0.0
-        posi.append([x, y, t, z, float(p)])
-    poslist.append(posi)
-    return poslist, maxframe
 
-
-def find_near(n,detlabelcontent,x,y):
+def find_near(n,csvcontent,x,y):
     frame_ind  = n
     all_posi = []
 
-    for panum,paticle in enumerate(detlabelcontent):
+    for panum,paticle in enumerate(csvcontent):
         np_parpos = np.array(paticle)
         frampos = np.where(np_parpos[:,2]== frame_ind)
         if len(frampos[0])>0:
-            for i in range(len(frampos[0])):
-                all_posi.append([panum,frampos[0][i],np_parpos[frampos[0][i],0], np_parpos[frampos[0][i],1]])
-    
+            all_posi.append([panum,frampos[0].item(),np_parpos[frampos[0].item(),0], np_parpos[frampos[0].item(),1]])
+
     dis_all_posi = []
     for thisframepos in all_posi:
         dis = (thisframepos[2]-x)**2 +(thisframepos[3]-y)**2
@@ -110,14 +56,13 @@ def find_near(n,detlabelcontent,x,y):
     return sortnp
 
 
-def make_data(tracklabelcontent, detlabelcontent, SIG, outputfolder, name, Past, Cand, n_near, frameend):
+def make_data(csvcontent, SIG, outputfolder, name, Past, Cand, n_near, frameend):
     
     print('==>Process:{}'.format(name))
     txtoutputname = os.path.join(outputfolder, name)
 
-    for pa_ind,paticle_poslist in enumerate(tracklabelcontent): # each track
-        print('Particle number:{}/{}, with length:{}'.format(pa_ind,len(tracklabelcontent),len(paticle_poslist)))
-
+    for pa_ind, paticle_poslist in enumerate(csvcontent):
+        print('Particle number:{}/{}, with length:{}'.format(pa_ind,len(csvcontent),len(paticle_poslist)))
         if len(paticle_poslist) >= 1+Cand:
             print('It will generate {} samples.'.format(len(paticle_poslist)))
 
@@ -127,10 +72,10 @@ def make_data(tracklabelcontent, detlabelcontent, SIG, outputfolder, name, Past,
             p_ind = paticle_poslist[0][-1]
             padding_before = []
             for a in range(Past-1,0,-1):
-                padding_before.append([-1,-1,first_frame-a,-1,p_ind])
+                padding_before.append([-1,-1,first_frame-a]+[-1]*3+[p_ind])  #-1*3 -> size intensity z
             padding_after = []
             for b in range(Cand):
-                padding_after.append([-1,-1,last_frame+b+1,-1,p_ind])
+                padding_after.append([-1,-1,last_frame+b+1]+[-1]*3+[p_ind])
             pad_paticle_poslist = padding_before+paticle_poslist+padding_after
 
             p_poslist_len = len(paticle_poslist)
@@ -143,25 +88,29 @@ def make_data(tracklabelcontent, detlabelcontent, SIG, outputfolder, name, Past,
                 # =============past==============
                 for i in range(Past):
                     pastposlist.append(
-                        [pad_paticle_poslist[line_ind+i][0],
-                         pad_paticle_poslist[line_ind+i][1],
-                         pad_paticle_poslist[line_ind+i][3]])
-                
+                        [pad_paticle_poslist[line_ind+i][0], # x
+                        pad_paticle_poslist[line_ind+i][1], # y
+                        pad_paticle_poslist[line_ind+i][3], # size
+                        pad_paticle_poslist[line_ind+i][4], # intensity
+                        pad_paticle_poslist[line_ind+i][5], # z
+                        ])
                 # ===========GT candidate===========
                 tree = Tree()
                 tree.create_node(tag='ext', identifier='ext', data=pastposlist[-1])
                 for j in range(Cand):
                     nodename = 'ext'+'1'*(j+1)
                     tree.create_node(
-                        tag=nodename,
+                        tag=nodename, 
                         identifier=nodename, 
                         parent='ext'+'1'*(j), 
                         data=[
-                            pad_paticle_poslist[line_ind+Past+j][0],
-                            pad_paticle_poslist[line_ind+Past+j][1],
-                            pad_paticle_poslist[line_ind+Past+j][3]
+                            pad_paticle_poslist[line_ind+Past+j][0],# x
+                            pad_paticle_poslist[line_ind+Past+j][1],# y
+                            pad_paticle_poslist[line_ind+Past+j][3],# size
+                            pad_paticle_poslist[line_ind+Past+j][4],# intensity
+                            pad_paticle_poslist[line_ind+Past+j][5],# z
                             ])
-                
+
                 # ===========other candidate===========
                 frame_ind = pad_paticle_poslist[line_ind+Past][2]
                 frame_indnext_list = [frame_ind+t for t in range(Cand)]
@@ -191,7 +140,7 @@ def make_data(tracklabelcontent, detlabelcontent, SIG, outputfolder, name, Past,
                         # find near position next
                         np_re = find_near(
                             n=frame_ind__,
-                            detlabelcontent=detlabelcontent,
+                            csvcontent=csvcontent,
                             x=near_objpos[0],
                             y=near_objpos[1]
                             )
@@ -212,7 +161,6 @@ def make_data(tracklabelcontent, detlabelcontent, SIG, outputfolder, name, Past,
                             else:
                                 neednull = 1
                                 notequalGT = 1
-                        
                         # extend node using near position
                         for ppos in np_re:
                             rand_i = int(ppos[0])
@@ -220,7 +168,7 @@ def make_data(tracklabelcontent, detlabelcontent, SIG, outputfolder, name, Past,
                             # judge whether same as GT，if yes then skip it
                             if notequalGT:
                                 GTlabel = tobe_extlabel+str(1)
-                                if 9 > (detlabelcontent[rand_i][fra_num][0] - tree.get_node(GTlabel).data[0])**2 + (detlabelcontent[rand_i][fra_num][1] - tree.get_node(GTlabel).data[1])**2:
+                                if csvcontent[rand_i][fra_num][0] == tree.get_node(GTlabel).data[0] and csvcontent[rand_i][fra_num][1] == tree.get_node(GTlabel).data[1]:
                                     continue
                             numb += 1
                             nodename = tobe_extlabel+str(numb)
@@ -229,14 +177,18 @@ def make_data(tracklabelcontent, detlabelcontent, SIG, outputfolder, name, Past,
                                 tag=nodename, 
                                 identifier=nodename, 
                                 parent=tobe_extlabel, 
-                                data=[detlabelcontent[rand_i][fra_num][0],detlabelcontent[rand_i][fra_num][1],detlabelcontent[rand_i][fra_num][3]])
+                                data=[
+                                    csvcontent[rand_i][fra_num][0],# x
+                                    csvcontent[rand_i][fra_num][1],# y
+                                    csvcontent[rand_i][fra_num][3],# size
+                                    csvcontent[rand_i][fra_num][4],# intensity
+                                    csvcontent[rand_i][fra_num][5],# z
+                                    ])
                             if numb == n_near-neednull: # fill the defined number
                                 break
 
-                        # if need dumn detections, add them
                         if numb < n_near-neednull:
                             neednull = n_near-numb
-                        
                         for _ in range(neednull):
                             numb += 1
                             nodename = tobe_extlabel+str(numb)
@@ -245,7 +197,7 @@ def make_data(tracklabelcontent, detlabelcontent, SIG, outputfolder, name, Past,
                                 tag=nodename, 
                                 identifier=nodename, 
                                 parent=tobe_extlabel, 
-                                data=[-1,-1,-1])
+                                data=[-1]*5)
 
                     # all node of one depth
                     nodenamelist = newnamelist.copy()
@@ -260,38 +212,19 @@ def make_data(tracklabelcontent, detlabelcontent, SIG, outputfolder, name, Past,
                 
                 # Check all items are different
                 str_candlist = [str(_) for _ in all_candidate]
-                assert len(str_candlist) == len(set(str_candlist)),print('Warning: Generated candidate duplicates!{}-{}'.format(paticle_poslist,line_ind))
-
-                # Shuffle
-                n_bat = n_near**(Cand-1)
-                total_choice= [all_candidate[i*n_bat:(i+1)*n_bat] for i in range(n_near)]
-
-                assert len(total_choice) == n_near, print(len(total_choice))
-                total_choice_rand = []
-                GT1 = 0
-                GT2 = 0
-                gt_random = False
-                for it in total_choice:
-                    indexlist = range(len(total_choice))
-                    randomindexlist = random.sample(indexlist,len(indexlist))
-                    if not gt_random:
-                        # print(randomindexlist)
-                        GT2 = np.where(np.array(randomindexlist) == 0)[0].item()
-                        gt_random = True
-                    temp = [it[hh] for hh in randomindexlist]
-                    total_choice_rand.append(temp)
-
-                indexlist = range(len(total_choice))
+                if len(str_candlist) != len(set(str_candlist)):
+                    print('Skip! Generated candidate duplicates!{}-{}'.format(paticle_poslist,line_ind))
+                    continue
+                
+                # Shuffle all
+                indexlist = range(len(all_candidate))
                 randomindexlist = random.sample(indexlist,len(indexlist))
-                GT1 = np.where(np.array(randomindexlist) == 0)[0].item()
-                final_total = [total_choice_rand[kk] for kk in randomindexlist]
+                GT_num = np.where(np.array(randomindexlist) == 0)[0].item()
+                random_all_cand = [all_candidate[hh] for hh in randomindexlist]
 
-                GT_num = GT1*len(total_choice)+GT2
-
-                # Write to file
                 f = open(txtoutputname+'_{}.txt'.format(SIG),'a+')
                 f.write(str(pastposlist)+'s')
-                for key in final_total:
+                for key in random_all_cand:
                     f.write(str(key)+'s')
                 # f.write(str(dist25out)+'s')
                 f.write(str(int(GT_num)))
@@ -307,15 +240,10 @@ def parse_args_():
     parser.add_argument('--node_number', type=int, default=5)
 
 
-    parser.add_argument('--tracklabelpath', type=str, default='/mnt/data1/ZYDdata/lwj/200609 lamp-1mch int2s 013all.csv')
-    parser.add_argument('--detlabelpath', type=str, default='/ldap_shared/home/s_zyd/dl_particle_detection/test/DL_Particle_Detection/detfor_track/lamp_vesicel4_0.99/200609 lamp-1mch int2s 013.csv')
-    parser.add_argument('--track_label_file_type', type=str, default='trackmatecsv', choices=['xml','trackmatecsv'])
-    parser.add_argument('--det_label_file_type', type=str, default='normalcsv', choices=['xml','trackmatecsv','normalcsv'])
+    parser.add_argument('--csvpath', type=str, default='./dataset/MOT17_trainval_test/gt_pedescsv/13gt_pedes.csv')
+    parser.add_argument('--savefolder', type=str, default='./dataset/MOT17_trainval_test/trainval_box_onefuture')
 
-
-    parser.add_argument('--savefolder', type=str, default='./dataset/lamp_trainval')
-
-    parser.add_argument('--trainval_splitrate', type=float, default=0.7)
+    parser.add_argument('--trainvalsplit_ratio', type=float, default=0.7)
 
 
     opt = parser.parse_args()
@@ -326,53 +254,48 @@ if __name__ == '__main__':
 
     opt = parse_args_()
 
-    tracklabelpath = opt.tracklabelpath
-    savefolder = opt.savefolder
+    csvpath = opt.csvpath
+    trainval_ratio = opt.trainvalsplit_ratio
 
-    name = os.path.split(tracklabelpath)[-1].replace('.xml','').replace('.csv','')
+    savefolder = opt.savefolder
+    name = os.path.split(csvpath)[-1].replace('.csv','')
     outputfolder = os.path.join(savefolder, f'past{opt.past_length}_depth{opt.tree_depth}_near{opt.node_number}')
     os.makedirs(outputfolder, exist_ok=True)
 
-    # read xml file 
-    if opt.track_label_file_type == 'xml':
-        tracklabelcontent,maxframe  = readXML(tracklabelpath)
-    elif opt.track_label_file_type == 'trackmatecsv':
-        tracklabelcontent,maxframe = read_trackmatecsv(tracklabelpath)
-    else:
-        raise KeyError
     
-    trainval_splitframe = int(maxframe * opt.trainval_splitrate)
-
+    
+    # read csv file 
+    csvcontent, maxframe = readCSV(csvpath)
     # split train val
-    tracklabel_content_train = []
-    tracklabel_content_val = []
-    for ite in tracklabelcontent:
+    split_threshold = int(maxframe*trainval_ratio)
+    movielenth = maxframe
+    csvcontent_train = []
+    csvcontent_val = []
+    for ite in csvcontent:
         train_ite = []
         val_ite = []
         for line in ite:
-            if line[2]<trainval_splitframe:
+            if line[2]<split_threshold:
                 train_ite.append(line)
             else:
                 val_ite.append(line)
-        if len(train_ite) > 1:
-            tracklabel_content_train.append(train_ite)
-        if len(val_ite) > 1:
-            tracklabel_content_val.append(val_ite)
+        if len(train_ite) > 0:
+            csvcontent_train.append(train_ite)
+        if len(val_ite) > 0:
+            csvcontent_val.append(val_ite)
 
-
-
-    # detection labels
-    if opt.det_label_file_type == 'normalcsv':
-        detlabelcontent,_ = read_detnormalcsv(opt.detlabelpath)
-
-
-    make_data(
-        tracklabel_content_train, detlabelcontent, 'train', outputfolder, name,
-        opt.past_length, opt.tree_depth, opt.node_number, 
-        trainval_splitframe)
-    
-    make_data(
-        tracklabel_content_val, detlabelcontent, 'val', outputfolder, name,
-        opt.past_length, opt.tree_depth, opt.node_number, 
-        maxframe)
+    if len(csvcontent_train) > 0:
+        make_data(
+            csvcontent_train, 'train', outputfolder, name,
+            opt.past_length, opt.tree_depth, opt.node_number, 
+            split_threshold)
+    else:
+        print('No training data was generated!')
+    if len(csvcontent_val) > 0:
+        make_data(
+            csvcontent_val, 'val', outputfolder, name,
+            opt.past_length, opt.tree_depth, opt.node_number, 
+            maxframe)
+    else:
+        print('No validation data was generated!')
     

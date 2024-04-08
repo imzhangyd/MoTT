@@ -92,14 +92,25 @@ def make_data(xmlcontent, SIG, outputfolder, name, Past, Cand, n_near, frameend)
                 pastposlist = []
                 # =============past==============
                 for i in range(Past):
-                    pastposlist.append([pad_paticle_poslist[line_ind+i][0],pad_paticle_poslist[line_ind+i][1],pad_paticle_poslist[line_ind+i][3]])
+                    pastposlist.append(
+                        [pad_paticle_poslist[line_ind+i][0], # x
+                         pad_paticle_poslist[line_ind+i][1], # y
+                         pad_paticle_poslist[line_ind+i][3]]) # z
                 
                 # ===========GT candidate===========
                 tree = Tree()
                 tree.create_node(tag='ext', identifier='ext', data=pastposlist[-1])
                 for j in range(Cand):
                     nodename = 'ext'+'1'*(j+1)
-                    tree.create_node(tag=nodename, identifier=nodename, parent='ext'+'1'*(j), data=[pad_paticle_poslist[line_ind+Past+j][0],pad_paticle_poslist[line_ind+Past+j][1],pad_paticle_poslist[line_ind+Past+j][3]])
+                    tree.create_node(
+                        tag=nodename,
+                        identifier=nodename, 
+                        parent='ext'+'1'*(j), 
+                        data=[
+                            pad_paticle_poslist[line_ind+Past+j][0],
+                            pad_paticle_poslist[line_ind+Past+j][1],
+                            pad_paticle_poslist[line_ind+Past+j][3]
+                            ])
                 
                 # ===========other candidate===========
                 frame_ind = pad_paticle_poslist[line_ind+Past][2]
@@ -128,7 +139,12 @@ def make_data(xmlcontent, SIG, outputfolder, name, Past, Cand, n_near, frameend)
                             near_objpos = thisnodedata.copy()
 
                         # find near position next
-                        np_re = find_near(n=frame_ind__,xmlcontent=xmlcontent,x=near_objpos[0],y=near_objpos[1])
+                        np_re = find_near(
+                            n=frame_ind__,
+                            xmlcontent=xmlcontent,
+                            x=near_objpos[0],
+                            y=near_objpos[1]
+                            )
 
                         # children number of this node
                         if tree.children(tobe_extlabel) == []: # null
@@ -163,7 +179,11 @@ def make_data(xmlcontent, SIG, outputfolder, name, Past, Cand, n_near, frameend)
                                 tag=nodename, 
                                 identifier=nodename, 
                                 parent=tobe_extlabel, 
-                                data=[xmlcontent[rand_i][fra_num][0],xmlcontent[rand_i][fra_num][1],xmlcontent[rand_i][fra_num][3]])
+                                data=[
+                                    xmlcontent[rand_i][fra_num][0],
+                                    xmlcontent[rand_i][fra_num][1],
+                                    xmlcontent[rand_i][fra_num][3]
+                                    ])
                             if numb == n_near-neednull: # fill the defined number
                                 break
 
