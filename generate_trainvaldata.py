@@ -281,14 +281,19 @@ if __name__ == '__main__':
         if len(val_ite) > 0:
             xmlcontent_val.append(val_ite)
 
+    if len(xmlcontent_train) > 0:
+        make_data(
+            xmlcontent_train, 'train', outputfolder, name,
+            opt.past_length, opt.tree_depth, opt.node_number, 
+            opt.trainval_splitframe)
+    else:
+        print('No training data was generated!')
 
-    make_data(
-        xmlcontent_train, 'train', outputfolder, name,
-        opt.past_length, opt.tree_depth, opt.node_number, 
-        opt.trainval_splitframe)
-    
-    make_data(
-        xmlcontent_val, 'val', outputfolder, name,
-        opt.past_length, opt.tree_depth, opt.node_number, 
-        opt.total_frame)
+    if len(xmlcontent_val) > 0:
+        make_data(
+            xmlcontent_val, 'val', outputfolder, name,
+            opt.past_length, opt.tree_depth, opt.node_number, 
+            opt.total_frame)
+    else:
+        print('No validation data was generated!')
     
