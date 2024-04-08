@@ -12,7 +12,7 @@ The code is developed using python 3.7.3 on Ubuntu 18.04. NVIDIA GPUs are needed
 conda create -n mott python==3.7.3 -y
 conda activate mott
 ```
-2. Install Gurobi solver.
+2. (Optional) Install Gurobi solver.
 Refer to [How-do-I-install-Gurobi-for-Python](https://support.gurobi.com/hc/en-us/articles/360044290292-How-do-I-install-Gurobi-for-Python).  
 3. Install pytorch==1.8.0+cu111 torchvision==0.9.0+cu111
 ```
