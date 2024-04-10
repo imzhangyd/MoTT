@@ -77,16 +77,18 @@ if __name__ == '__main__':
             assert len(imgpath) == 1
 
             img = io.imread(imgpath[0])
-
+            H,W = img.shape
             plt.figure()
             plt.imshow(img,'gray')
             plt.axis('off')
-            ID_color = get_color(the_id)
+            ID_color = 'r' #get_color(the_id)
             # this_iddet = result[result['trackid']==the_id].sort_values('frame')
             this_iddet_near = this_idtrack[(this_idtrack['frame']<=fr)] #&(this_iddet['frame']>fr-10)
-            plt.plot(this_iddet_near['pos_x'],this_iddet_near['pos_y'],linewidth=0.5,color='r')
+            xlist = [max(min(x, W-2),1) for x in this_iddet_near['pos_x']]
+            ylist = [max(min(y, H-2),1) for y in this_iddet_near['pos_y']]
+            plt.plot(xlist,ylist,linewidth=0.5,color=ID_color)
             if opt.vis_dot:
-                plt.scatter([this_iddet_near['pos_x'].values[-1]],[this_iddet_near['pos_y'].values[-1]],color=ID_color, marker='o', edgecolors=ID_color, s=1,linewidths=1)
+                plt.scatter([xlist[-1]],[ylist[-1]],color=ID_color, marker='o', edgecolors=ID_color, s=1,linewidths=1)
 
             plt.savefig(os.path.join(savefolder, 'track%d_%03d.jpg'%(the_id,fr)), bbox_inches='tight',dpi=300,pad_inches=0.0)
             plt.close()

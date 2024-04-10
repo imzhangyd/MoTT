@@ -51,7 +51,7 @@ if __name__ == '__main__':
     filename = result_pa.split('/')[-1].replace('.csv','')
     
     print('[Info] Start')
-    for fr in range(0,int(result['frame'].values.max())+1):
+    for fr in range(1,int(result['frame'].values.max())+1):
         
         if fr%(int(result['frame'].values.max())+1//5) == 0:
             print(f'[Info] Visualize frame:{fr}')
@@ -60,7 +60,7 @@ if __name__ == '__main__':
         assert len(imgpath) == 1
 
         img = io.imread(imgpath[0])
-
+        H,W= img.shape
         plt.figure()
         plt.imshow(img,'gray')
         plt.axis('off')
@@ -71,11 +71,13 @@ if __name__ == '__main__':
             ID_color = get_color(the_id)
             this_iddet = result[result['trackid']==the_id].sort_values('frame')
             this_iddet_near = this_iddet[(this_iddet['frame']<=fr)] #&(this_iddet['frame']>fr-10)
-            plt.plot(this_iddet_near['pos_x'],this_iddet_near['pos_y'],linewidth=0.5,color=ID_color)
+            xlist = [max(min(x, W-2),1) for x in this_iddet_near['pos_x']]
+            ylist = [max(min(y, H-2),1) for y in this_iddet_near['pos_y']]
+            plt.plot(xlist,ylist,linewidth=0.5,color=ID_color)
             if opt.vis_dot:
-                plt.scatter([this_iddet_near['pos_x'].values[-1]],[this_iddet_near['pos_y'].values[-1]],color=ID_color, marker='o', edgecolors=ID_color, s=1,linewidths=1)
+                plt.scatter([xlist[-1]],[ylist[-1]],color=ID_color, marker='o', edgecolors=ID_color, s=1,linewidths=1)
 
         plt.savefig(os.path.join(savefolder, '%03d.jpg'%fr), bbox_inches='tight',dpi=300,pad_inches=0.0)
         plt.close()
-    #     break
+        # break
     print('[Info] Success!')

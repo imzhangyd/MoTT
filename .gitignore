@@ -4,3 +4,4 @@ checkpoint/
 prediction/
 __pycache__/
 **/__pycache__/
+**.sh
