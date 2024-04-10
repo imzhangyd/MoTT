@@ -30,17 +30,18 @@ class cls_Dataset(Dataset):
             line = line.rstrip()
             passed = eval(line.split('s')[0])
 
-            future1 = eval(line.split('s')[1])
-            future2 = eval(line.split('s')[2])
-            future3 = eval(line.split('s')[3])
-            future4 = eval(line.split('s')[4])
-            future5 = eval(line.split('s')[5])
-
-            future = [future1,future2,future3,future4,future5]
             t_future = []
-            for mm in future:
-                for nn in mm:
-                    t_future.append(nn)
+            this_cand = line.count('s')-2
+            if this_cand == num_cand:
+                for m in range(num_cand):
+                    t_future.append(eval(line.split('s')[m+1]))
+            else:
+                for m in range(this_cand):
+                    t_future.append(eval(line.split('s')[m+1]))
+                for m in range(int(num_cand-this_cand)):
+                    t_future.append(
+                        [[-1]*len(passed[0]) for _ in range(len(t_future[0]))]
+                        )
 
 
             passed_np = np.array(passed)

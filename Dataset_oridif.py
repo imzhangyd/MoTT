@@ -41,7 +41,8 @@ class cls_Dataset_oridif(Dataset):
                         t_future.append(eval(line.split('s')[m+1]))
                     for m in range(int(num_cand-this_cand)):
                         t_future.append(
-                            [[-1]*len(passed[0])]*len(t_future[0]))
+                            [[-1]*len(passed[0]) for _ in range(len(t_future[0]))]
+                            )
                 
                 # add bbox height and width
                 passed_np = np.array(passed)

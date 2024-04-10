@@ -103,8 +103,7 @@ if __name__ == '__main__':
     shutil.copy(pyfilepath,os.path.join(outputmodel_path,os.path.split(pyfilepath)[-1]))
     shutil.copy(os.path.join(pyfilepath,'../engine/trainval.py'), os.path.join(outputmodel_path, 'trainval.py'))
     # train
-    traindatamean = trainval(opt)
-    traindatastd = trainval(opt)
+    traindatamean, traindatastd= trainval(opt)
 
     with open(os.path.join(outputmodel_path,'param.txt'),'a') as f:
         f.write(str(traindatamean))
