@@ -40,6 +40,11 @@ def readXML(file):
 def find_near(pdcontent,x,y):
 
     pdcontent = pdcontent.drop_duplicates(subset=['pos_x','pos_y'])
+    pos_column = ['pos_x','pos_y']
+    other_column = [co for co in pdcontent.columns if co not in pos_column]
+    reindex_column = pos_column + other_column
+    pdcontent = pdcontent[reindex_column]
+
     all_posi = pdcontent.values.tolist()
     dis_all_posi = []
     for thisframepos in all_posi:
@@ -121,8 +126,8 @@ if __name__=='__main__':
     
 
     parser.add_argument('--movie_name', type=str, default=None)
-    parser.add_argument('--pred_csvpath', type=str, default='./prediction/20240304_09_44_18/track_result.csv')
-    parser.add_argument('--save_xmlpath', type=str, default='./prediction/20240304_09_44_18/track_result.xml')
+    parser.add_argument('--pred_csvpath', type=str, default='./prediction/20240409_13_45_39_GTxml/test_2024_04_08__14_44_25/test_2024_04_08__14_44_25.csv')
+    parser.add_argument('--save_xmlpath', type=str, default='./prediction/20240409_13_45_39_GTxml/test_2024_04_08__14_44_25/test_2024_04_08__14_44_25.xml')
 
     opt = parser.parse_args()
 

@@ -75,7 +75,7 @@ def probability_maximization_pulp_solver(costs,trackid_list,detid_list):
     
     # set solver and optimize
     pulp_dir = os.path.dirname(pulp.__file__)
-    solver = pulp.COIN_CMD(path=os.path.join(pulp_dir, 'solverdir/cbc/linux/64/cbc',msg=False))
+    solver = pulp.COIN_CMD(path=os.path.join(pulp_dir, 'solverdir/cbc/linux/64/cbc'),msg=False)
     mottProDp.solve(solver)
 
     # analyze solution
