@@ -3,74 +3,111 @@ from torch.utils.data import Dataset
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
+
 # import math
 
 
 __author__ = "Yudong Zhang"
 
 
-def normlization(tensor,mean,std):
+def normlization(tensor, mean, std):
     tensor_ = tensor
-    for num,line in enumerate(tensor):
+    for num, line in enumerate(tensor):
         if line[-1] == 1:
-            tensor_[num,:-1] = (line[:-1]-mean)/std
+            tensor_[num, :-1] = (line[:-1] - mean) / std
         elif line[-1] == 0:
-            tensor_[num,:] = 0
+            tensor_[num, :] = 0
     return tensor_
 
 
 class cls_Dataset_match(Dataset):
-    def __init__(self,one_frame_match_list):
-        super(cls_Dataset_match,self).__init__()
+    def __init__(self, one_frame_match_list, mean_=None, std_=None):
+        super(cls_Dataset_match, self).__init__()
 
         datapathlist = []
         for line in one_frame_match_list:
-            passed = line['pastpos']
-            future = line['cand25']
-            trackid = line['trackid']
-            cand5_id = line['cand5_id']
+            passed = line["pastpos"]
+            t_future = line["allcandpos"]
+            trackid = line["trackid"]
+            nextcand_ids = line["nextone_candid"]
 
             passed_np = np.array(passed)
-            passed_shift = passed_np[1:,:-1] - passed_np[:-1,:-1]
+            # shift of passed
+            passed_shift = passed_np[1:, :-1] - passed_np[:-1, :-1]
             start_ = 0
-            if -1 in set(passed_np[:,-1]):
-                start_ = np.where(passed_np[:,-1] == -1)[0][-1]+1
-                passed_shift[start_-1,:] =0
-            flag_list = [0]*(start_) + [1]*(len(passed_shift)-(start_))
-            flag_np = np.array(flag_list).reshape(-1,1)
-            passed_shift = np.concatenate([passed_shift,flag_np],-1)
+            if -1 in set(passed_np[:, -1]):
+                start_ = np.where(passed_np[:, -1] == -1)[0][-1] + 1
+                passed_shift[:start_, :] = 0
+            # flag
+            flag_list = [0] * (start_) + [1] * (len(passed_shift) - (start_))
+            flag_np = np.array(flag_list).reshape(-1, 1)
+            # ori pos of passed
+            passed_pre = passed_np[1:, :].copy()
+            if -1 in set(passed_pre[:, -1]):
+                passed_pre[: start_ - 1, :] = 0  # not real pos
+            # add abs shift x， abs shift y， abs dist
+            abs_shift = np.abs(passed_shift[:, :2])
+            abs_dist = np.sqrt(abs_shift[:, 0] ** 2 + abs_shift[:, 1] ** 2).reshape(
+                [-1, 1]
+            )
+            # concate shift and ori pos and abs shift dist and flag
+            passed_shift = np.concatenate(
+                [passed_shift, passed_pre[:, :-1], abs_shift, abs_dist, flag_np], -1
+            )
 
-            t_future = future.copy()
-            
+            # shift of future
             future_shift = []
             for kk in t_future:
-                temp = np.array([passed[-1]]+kk)
-                this_shift = np.zeros([len(kk),len(kk[0])-1])
-                where_exist = np.where(temp[:,-1] == 0)
-                this_shift[where_exist[0][1:]-1] = temp[where_exist[0][1:],:-1]-temp[where_exist[0][:-1],:-1]
-                flag_here = np.array(kk)[:,-1].reshape(-1,1) + 1
-                this_sft = np.concatenate([this_shift,flag_here],-1)
+                # shift future
+                temp = np.array([passed[-1]] + kk)
+                this_shift = np.zeros([len(kk), len(kk[0]) - 1])
+                where_exist = np.where(temp[:, -1] == 0)
+                # average multi frame for null
+                gap_fra = (where_exist[0][1:] - where_exist[0][:-1]).reshape(-1, 1)
+                gap_frames = np.concatenate([gap_fra] * (temp.shape[1] - 1), 1)
+                this_shift[where_exist[0][1:] - 1] = (
+                    temp[where_exist[0][1:], :-1] - temp[where_exist[0][:-1], :-1]
+                ) / gap_frames
+                # flag
+                flag_here = np.array(kk)[:, -1].reshape(-1, 1) + 1
+                # ori pos of passed
+                thisfu = np.array(kk)
+                thisfu[np.where(thisfu[:, -1] < -0.5), :] = 0
+
+                # abs shift
+                abs_shift = np.abs(this_shift[:, :2])
+                abs_dist = np.sqrt(abs_shift[:, 0] ** 2 + abs_shift[:, 1] ** 2).reshape(
+                    [-1, 1]
+                )
+                # concatenate
+                this_sft = np.concatenate(
+                    [this_shift, thisfu[:, :-1], abs_shift, abs_dist, flag_here], -1
+                )  ## s_x, s_y, s_size, s_inten,x, y, size, inten, abs shiftx, abs shift y, abs dist,flag(0 or 1)
                 future_shift.append(this_sft.tolist())
-                
+
             future_shift_np = np.array(future_shift)
 
-            datapathlist.append([passed_shift,future_shift_np,trackid,cand5_id,passed])
+            datapathlist.append(
+                [passed_shift, future_shift_np, trackid, nextcand_ids, passed]
+            )
 
+        if mean_ is None:
+            reshapelen = len(datapathlist[0][0][0])
+            t_passed_ = np.stack(np.array(datapathlist)[:, 0]).reshape([-1, reshapelen])
+            t_passed_1 = t_passed_[t_passed_[:, -1] == 1]
+            t_future_ = np.stack(np.array(datapathlist)[:, 1]).reshape([-1, reshapelen])
+            t_future_1 = t_future_[t_future_[:, -1] == 1]
+            t_shift = np.concatenate([t_passed_1, t_future_1], 0)
 
-        t_passed_ = np.stack(np.array(datapathlist)[:,0]).reshape([-1,3])
-        t_passed_1 = t_passed_[t_passed_[:,-1] == 1]
-        t_future_ = np.stack(np.array(datapathlist)[:,1]).reshape([-1,3])
-        t_future_1 = t_future_[t_future_[:,-1] == 1]
-        t_shift = np.concatenate([t_passed_1,t_future_1],0)
+            t_mean = t_shift.mean(0)
+            t_std = t_shift.std(0)
 
-        
-        t_mean = t_shift.mean(0)
-        t_std = t_shift.std(0)
-
-        self.mean = t_mean[:-1]
-        self.std = t_std[:-1]
+            self.mean = t_mean[:-1]
+            self.std = t_std[:-1]
+        else:
+            self.mean = np.array(mean_)
+            self.std = np.array(std_)
         self.datapathlist = datapathlist
-
 
     def __getitem__(self, index: int):
         # get path
@@ -79,35 +116,47 @@ class cls_Dataset_match(Dataset):
         trackid_ = np.array(self.datapathlist[index][2])
         cand5_id_ = np.array(self.datapathlist[index][3])
 
-
         passed_ = np.array(self.datapathlist[index][-1])
 
         # numpy->torch
-        
+
         passed_shift_t = torch.from_numpy(passed_shift_)
         future_shift_t = torch.from_numpy(future_shift_)
 
         passed_t = torch.from_numpy(passed_)
 
         # normalization
-        passed_shift_t_norm = normlization(passed_shift_t,torch.from_numpy(self.mean),torch.from_numpy(self.std))
+        passed_shift_t_norm = normlization(
+            passed_shift_t, torch.from_numpy(self.mean), torch.from_numpy(self.std)
+        )
         future_shift_t_norm = future_shift_t
-        for num,fu in enumerate(future_shift_t):
-            fu_norm = normlization(fu,torch.from_numpy(self.mean),torch.from_numpy(self.std))
+        for num, fu in enumerate(future_shift_t):
+            fu_norm = normlization(
+                fu, torch.from_numpy(self.mean), torch.from_numpy(self.std)
+            )
             future_shift_t_norm[num] = fu_norm
 
-
-        ip_lb = (passed_shift_t_norm,future_shift_t_norm,trackid_,cand5_id_,passed_t)
-        return (ip_lb)
+        ip_lb = (
+            passed_shift_t_norm,
+            future_shift_t_norm,
+            trackid_,
+            cand5_id_,
+            passed_t,
+        )
+        return ip_lb
 
     def __len__(self):
         return len(self.datapathlist)
 
-    
 
-
-
-def func_getdataloader_match(one_frame_match_list, batch_size, shuffle, num_workers):
-    dtst_ins = cls_Dataset_match(one_frame_match_list)
-    loads_ins = DataLoader(dataset = dtst_ins, batch_size = batch_size, shuffle = shuffle, num_workers = num_workers)
-    return loads_ins,dtst_ins
+def func_getdataloader_match(
+    one_frame_match_list, batch_size, shuffle, num_workers, mean=None, std=None
+):
+    dtst_ins = cls_Dataset_match(one_frame_match_list, mean, std)
+    loads_ins = DataLoader(
+        dataset=dtst_ins,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+    )
+    return loads_ins, dtst_ins

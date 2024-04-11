@@ -56,11 +56,12 @@ class Encoder(nn.Module):
 
     def __init__(
             self, d_word_vec, n_layers, n_head, d_k, d_v,
-            d_model, d_inner, dropout=0.1, n_position=200, scale_emb=True,n_length = 7):
+            d_model, d_inner, dropout=0.1, n_position=200, scale_emb=True,n_length = 7,
+            inoutdim=3):
 
         super().__init__()
 
-        self.src_word_emb = nn.Linear(3,d_model)
+        self.src_word_emb = nn.Linear(inoutdim,d_model)
         self.position_enc = PositionalEncoding(d_word_vec, n_position=n_position)
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList([
@@ -96,11 +97,12 @@ class Decoder(nn.Module):
 
     def __init__(
             self, d_word_vec, n_layers, n_head, d_k, d_v,
-            d_model, d_inner, n_position=200, dropout=0.1, scale_emb=True,n_length=2):
+            d_model, d_inner, n_position=200, dropout=0.1, scale_emb=True,n_length=2,
+            inoutdim=3):
 
         super().__init__()
 
-        self.trg_word_emb = nn.Linear(3*n_length,d_model)
+        self.trg_word_emb = nn.Linear(inoutdim*n_length,d_model)
         self.position_enc = PositionalEncoding(d_word_vec, n_position=n_position)
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList([
@@ -134,7 +136,9 @@ class Decoder(nn.Module):
 
 
 class PredHeads(nn.Module):
-    def __init__(self, d_model, n_candi=4, out_size=4, dropout=0.1, reg_h_dim=128, dis_h_dim=128, cls_h_dim=128):
+    def __init__(
+        self, d_model, n_candi=4, out_size=4, dropout=0.1, reg_h_dim=128, dis_h_dim=128, cls_h_dim=128,
+        inoutdim=3):
         super(PredHeads, self).__init__()
         self.reg_mlp = nn.Sequential(
             nn.Linear(d_model, d_model, bias=True),
@@ -153,14 +157,18 @@ class PredHeads(nn.Module):
 
         self.cls_opt = nn.Softmax(dim=-1)
 
-    def forward(self, x):
-        pred = self.reg_mlp(x)
-        pred = pred.transpose(-1,-2)
-        pred = self.reg_linear(pred).squeeze(dim=-1)
-        pred = pred.view(*pred.shape[0:1], -1, 3)
-        pred_pos = pred[:,:,:-1].cumsum(dim=-2)
-        pred = torch.cat([pred_pos,pred[:,:,-1:]],-1)
-        # return pred
+        self.inoutdim = inoutdim
+
+    def forward(self, x): # bs,candi_num=25, d_model
+        pred = self.reg_mlp(x) # bs,candi_num=25, inoutdim*n_length
+        pred = pred.transpose(-1,-2) # bs, inoutdim*n_length,candi_num=25
+        pred = self.reg_linear(pred).squeeze(dim=-1) # bs, inoutdim*n_length
+        pred = pred.view(*pred.shape[0:1], -1, self.inoutdim) # bs, n_length, inoutdim
+        # inoutdim = normed[s_x, s_y, s_size, s_inten,  x, y, size, inten,   abs shiftx, abs shift y, abs dist,     flag]
+        pred[...,-1] = torch.sigmoid(pred[...,-1])
+        # pred_pos = pred[:,:,:-1].cumsum(dim=-2)
+        # pred = torch.cat([pred_pos,pred[:,:,-1:]],-1)
+        
         cls_h = self.cls_FFN(x).squeeze(dim=-1)
         conf = self.cls_opt(cls_h)
         return pred, cls_h
@@ -174,7 +182,7 @@ class Transformer(nn.Module):
             # src_pad_idx, trg_pad_idx,
             n_passed = 7,n_future = 2,n_candi = 4,
             d_word_vec=2, d_model=512, d_inner=2048,
-            n_layers=6, n_head=8, d_k=64, d_v=64, dropout=0.1, n_position=9,
+            n_layers=6, n_head=8, d_k=64, d_v=64, dropout=0.1, n_position=9,inoutdim=3
             ):
         super().__init__()
 
@@ -186,16 +194,19 @@ class Transformer(nn.Module):
             n_position=n_position,
             d_word_vec=d_word_vec, d_model=d_model, d_inner=d_inner,
             n_layers=n_layers, n_head=n_head, d_k=d_k, d_v=d_v,
-            dropout=dropout, scale_emb=scale_emb,n_length = n_passed)
+            dropout=dropout, scale_emb=scale_emb,n_length = n_passed,
+            inoutdim=inoutdim)
 
         self.decoder = Decoder(
             n_position=n_position,
             d_word_vec=d_word_vec, d_model=d_model, d_inner=d_inner,
             n_layers=n_layers, n_head=n_head, d_k=d_k, d_v=d_v,
-            dropout=dropout, scale_emb=scale_emb,n_length = n_future)
+            dropout=dropout, scale_emb=scale_emb,n_length = n_future,
+            inoutdim=inoutdim)
 
         self.pred_ = PredHeads(
-            d_model=self.d_model, n_candi=n_candi, out_size=n_future*3, dropout=dropout, reg_h_dim=128, dis_h_dim=128, cls_h_dim=128
+            d_model=self.d_model, n_candi=n_candi, out_size=n_future*inoutdim,
+            dropout=dropout, reg_h_dim=128, dis_h_dim=128, cls_h_dim=128,inoutdim=inoutdim
         )
 
         assert d_model == d_word_vec

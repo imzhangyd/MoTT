@@ -3,14 +3,17 @@ This script handles the tracking process.
 """
 
 import time
-
+import torch
 import numpy as np
 import torch.nn as nn
 import time
 
 import pandas as pd
 import numpy as np
-from Dataset_match import func_getdataloader_match
+
+# from Dataset_match import func_getdataloader_match
+from Dataset_oridif_match import func_getdataloader_oridif_match
+from engine.visualization import vis_netpred, vis_matchres
 from torch import nn
 import gurobipy as grb
 import time
@@ -19,8 +22,6 @@ from treelib import Tree
 import numpy as np
 import pandas as pd
 from utils import load_model, readXML, find_near
-import pulp
-import os
 
 
 __author__ = "Yudong Zhang"
@@ -78,7 +79,7 @@ def probability_maximization_pulp_solver(costs, trackid_list, detid_list):
     # set solver and optimize
     pulp_dir = os.path.dirname(pulp.__file__)
     solver = pulp.COIN_CMD(
-        path=os.path.join(pulp_dir, "solverdir/cbc/linux/64/cbc"), msg=False
+        path=os.path.join(pulp_dir, "solverdir/cbc/linux/64/cbc", msg=False)
     )
     mottProDp.solve(solver)
 
@@ -187,7 +188,7 @@ def make_tracklets(
     """
 
     t_trackid = set(established_track["trackid"])
-    frame_idx = established_track.columns.get_loc("frame")
+
     one_frame_match_list = []
     for one_trackid in t_trackid:
         thistrack_dic = {}
@@ -204,16 +205,18 @@ def make_tracklets(
             convert_one_track.append(b + [0])
         pad_paticle_poslist = padding_before + convert_one_track
 
-        if convert_one_track[-1][frame_idx] < end_frame:
+        if convert_one_track[-1][-2] < end_frame:
             pastposlist = []
             for i in range(-Past, 0):
                 pastposlist.append(
                     [
-                        pad_paticle_poslist[i][1],  # x
-                        pad_paticle_poslist[i][2],  # y
-                        pad_paticle_poslist[i][3],  # size
-                        pad_paticle_poslist[i][4],  # intensity
-                        pad_paticle_poslist[i][6],  # flag
+                        pad_paticle_poslist[i][1],
+                        pad_paticle_poslist[i][2],
+                        pad_paticle_poslist[i][3],
+                        pad_paticle_poslist[i][4],
+                        pad_paticle_poslist[i][5],
+                        pad_paticle_poslist[i][6],
+                        pad_paticle_poslist[i][8],
                     ]
                 )
 
@@ -241,7 +244,6 @@ def make_tracklets(
                                 break
                     else:
                         near_objpos = thisnodedata.copy()
-
                     if (
                         frame_ind__ > end_frame
                         or len(detection_total[detection_total["frame"] == frame_ind__])
@@ -249,7 +251,7 @@ def make_tracklets(
                     ):
                         np_re = []
                     else:
-                        np_re = find_near(  # pos_x, pos_y, size, intensity, frame, det_id, dis
+                        np_re = find_near(  # pos_x, pos_y, left, right, top, bottom, frame, det_id, dis
                             pdcontent=detection_total[
                                 detection_total["frame"] == frame_ind__
                             ],
@@ -271,7 +273,15 @@ def make_tracklets(
                             tag=nodename,
                             identifier=nodename,
                             parent=tobe_extlabel,
-                            data=[ppos[0], ppos[1], ppos[2], ppos[3], 0],
+                            data=[
+                                ppos[0],
+                                ppos[1],
+                                ppos[2],
+                                ppos[3],
+                                ppos[4],
+                                ppos[5],
+                                0,
+                            ],
                         )
                         if numb == Near - neednull:
                             break
@@ -305,19 +315,17 @@ def make_tracklets(
                     onepath_data.append(tree.get_node(onepos).data)
                 all_candidate.append(onepath_data)
 
-            # Check all items are different
-            if convert_one_track[-1][frame_idx] < (end_frame - (Cand - 1)):
-                str_candlist = [str(_) for _ in all_candidate]
-                assert len(str_candlist) == len(set(str_candlist)), print(
-                    f"Warning: Generated candidate duplicates! \
-                        \n last livetrack frame:{convert_one_track[-1][frame_idx]}, Cand:{Cand}, end_frame-(Cand-1):{end_frame-(Cand-1)} \
-                        \n generated cand list: {all_candidate}"
-                )
+            # # Check all items are different
+            # if convert_one_track[-1][3] < (end_frame-(Cand-1)):
+            #     str_candlist = [str(_) for _ in all_candidate]
+            #     assert len(str_candlist) == len(set(str_candlist)), print(f'Warning: Generated candidate duplicates! \
+            #             \n last livetrack frame:{convert_one_track[-1][3]}, Cand:{Cand}, end_frame-(Cand-1):{end_frame-(Cand-1)} \
+            #             \n generated cand list: {all_candidate}')
 
         thistrack_dic["trackid"] = one_trackid
-        thistrack_dic["nextone_candid"] = det_id_4cand_reserve
+        thistrack_dic["cand5_id"] = det_id_4cand_reserve
         thistrack_dic["pastpos"] = pastposlist
-        thistrack_dic["allcandpos"] = all_candidate
+        thistrack_dic["cand25"] = all_candidate
 
         one_frame_match_list.append(thistrack_dic)
 
@@ -332,11 +340,16 @@ def tracking(
     Past,
     Cand,
     Near,
-    no_cuda=False,
-    holdnum=1,
-    solver_name="pulp",
+    track_buffer=10,
+    new_track_thresh=0.6,
+    track_high_thresh=0.6,
+    track_low_thresh=0.1,
     mean_=None,
     std_=None,
+    vis=False,
+    no_cuda=False,
+    imagefolder="./dataset/MOT17/train",
+    solver_name="pulp",
 ):
 
     print(
@@ -358,28 +371,59 @@ def tracking(
     transformer.eval()
 
     # prepare detection data
-    detection_total_ori = pd.read_csv(input_detfile, index_col=0)
-    detection_total = detection_total_ori[["w_position", "h_position", "size", "frame"]]
-    detection_total = detection_total.rename(
-        columns={"w_position": "pos_x", "h_position": "pos_y"}
+    detection_total_ori = pd.read_csv(
+        input_detfile, index_col=0
+    )  # .iloc[:,[6,7,8,2,3,4,5,0]]
+    detection_total = detection_total_ori[
+        detection_total_ori["conf"] > track_high_thresh
+    ]
+    detection_total = detection_total[
+        ["pos_x", "pos_y", "bb_left", "bb_top", "bb_width", "bb_height", "frame"]
+    ]
+    detection_total["bb_right"] = (
+        detection_total["bb_left"] + detection_total["bb_width"]
     )
-    detection_total["intensity"] = detection_total["size"] * 50.0
-    detection_total = detection_total[["pos_x", "pos_y", "size", "intensity", "frame"]]
+    detection_total["bb_bottom"] = (
+        detection_total["bb_top"] + detection_total["bb_height"]
+    )
+    detection_total = detection_total[
+        ["pos_x", "pos_y", "bb_left", "bb_right", "bb_top", "bb_bottom", "frame"]
+    ]
 
+    imgx = detection_total["pos_x"].max()
+    imgy = detection_total["pos_y"].max()
+
+    # detection_total = detection_total.sample(frac=fract,replace=False,random_state=1,axis=0)
+    # detection_total.reset_index(drop=True,inplace=True)
     detection_total["det_id"] = detection_total.index
-    # detection_total = detection_total.sample(frac=fract, replace=False, random_state=1, axis=0)
-    # detection_total.reset_index(drop=True, inplace=True)
-    # detection_total["det_id"] = detection_total.index
 
     start_frame = min(list(detection_total["frame"]))
     end_frame = max(list(detection_total["frame"]))
     print("[Info] Tracking range: frame {}----frame {}".format(start_frame, end_frame))
     # Initialization the live tracklet set and keep set
     established_track = pd.DataFrame(
-        columns=["trackid", "pos_x", "pos_y", "size", "intensity", "frame"]
+        columns=[
+            "trackid",
+            "pos_x",
+            "pos_y",
+            "bb_left",
+            "bb_right",
+            "bb_top",
+            "bb_bottom",
+            "frame",
+        ]
     )
     keep_track = pd.DataFrame(
-        columns=["trackid", "pos_x", "pos_y", "size", "intensity", "frame"]
+        columns=[
+            "trackid",
+            "pos_x",
+            "pos_y",
+            "bb_left",
+            "bb_right",
+            "bb_top",
+            "bb_bottom",
+            "frame",
+        ]
     )
     print("[Info] Finish prepare total det")
 
@@ -397,7 +441,16 @@ def tracking(
         ):
             # print('===>>> Step0: Initialization')
             established_track = this_det[
-                ["det_id", "pos_x", "pos_y", "size", "intensity", "frame"]
+                [
+                    "det_id",
+                    "pos_x",
+                    "pos_y",
+                    "bb_left",
+                    "bb_right",
+                    "bb_top",
+                    "bb_bottom",
+                    "frame",
+                ]
             ]
             established_track = established_track.rename(columns={"det_id": "trackid"})
             # make a hold record set
@@ -405,9 +458,11 @@ def tracking(
             temp[:, 0] = this_det["det_id"]
             established_track_HOLDnum = pd.DataFrame(temp)
             established_track_HOLDnum.columns = ["trackid", "HOLDnum"]
+
         if len(established_track) == 0:
             this_frame += 1
             continue
+
         # 1. For each livetracklet, make candidate live trackelts by constructing hypothesis tree
         # print('===>>> Step1: make tracklets')
         one_frame_match_list = make_tracklets(
@@ -416,7 +471,7 @@ def tracking(
 
         # 2. predict matching probabilities between livetracklet and candidate tracklets, and predict future state(next position and existence probability)
         # print('===>>> Step2: predict matching probilities')
-        this_frame_dataloader, this_frame_data = func_getdataloader_match(
+        this_frame_dataloader, this_frame_data = func_getdataloader_oridif_match(
             one_frame_match_list,
             batch_size=len(one_frame_match_list),  # prediction all at once
             shuffle=False,
@@ -431,15 +486,27 @@ def tracking(
             trackid_batch = batch[2].tolist()
             cand5id_batch = batch[3].tolist()
             pred_shift, pred_prob = transformer(src_seq, trg_seq)
-        # bs,len_future,intoudim：normed[s_x,s_y,s_size,s_inten, x,y,size,inten, abs_shiftx,abs_shifty,abs_dist, flag(0 -- 1)]
+            src_seq_abpos = batch[-1].float()
 
+        lastab = src_seq_abpos[:, -1, :2].numpy()
         shrink = nn.MaxPool1d(kernel_size=Near ** (Cand - 1), stride=Near ** (Cand - 1))
         soft = nn.Softmax(dim=-1)
         pred_prob5 = shrink(pred_prob.unsqueeze(0)).squeeze(0)
-        # soft_pred_prob5 = soft(pred_prob5).detach().cpu().numpy().tolist()
+        soft_pred_prob5 = soft(pred_prob5).detach().cpu().numpy().tolist()
         norm_pred_prob5 = (pred_prob5 - pred_prob5.min()) + 0.0001
         norm_pred_prob5 = (
             (norm_pred_prob5 / norm_pred_prob5.max()).detach().cpu().numpy().tolist()
+        )
+        # record the classfication number
+        pred_value, pred_clsnum = torch.max(pred_prob, 1)
+        pred_nextone_detid = (
+            torch.Tensor(cand5id_batch)[
+                [range(len(cand5id_batch))], pred_clsnum // Near ** (Cand - 1)
+            ][0]
+            .detach()
+            .cpu()
+            .numpy()
+            .reshape(-1, 1)
         )
 
         # record the future state prediction
@@ -455,6 +522,7 @@ def tracking(
                 np.array(trackid_batch).reshape(-1, 1),
                 pred_shift_next1,
                 pred_shift_exist_flag,
+                pred_nextone_detid,
             ],
             -1,
         )
@@ -463,18 +531,41 @@ def tracking(
             "trackid",
             "shift_x",
             "shift_y",
-            "shift_size",
-            "shift_intensity",
+            "shift_left",
+            "shift_right",
+            "shift_top",
+            "shift_bottom",
+            "shift_width",
+            "shift_height",
             "abs_x",
             "abs_y",
-            "abs_size",
-            "abs_intensity",
-            "abs_shift_x",
-            "abs_shift_y",
-            "abs_dist",
+            "abs_left",
+            "abs_right",
+            "abs_top",
+            "abs_botoom",
+            "abs_width",
+            "abs_height",
             "exist_flag",
+            "p_detid",
         ]
 
+        if vis:
+            thisframeimage = vis_netpred(
+                input_detfile,
+                this_frame,
+                trackid_batch,
+                src_seq_abpos,
+                pred_nextone_detid,
+                trg_seq,
+                Near,
+                Cand,
+                this_frame_data,
+                lastab,
+                cand5id_batch,
+                pred_prob5,
+                output_trackcsv,
+                imagefolder,
+            )
         # 3. construct a discrecte optimazation problem, and solve it to obtain the optimal matching
         # print('===>>> Step3: find the overall best matching')
         costlist = []
@@ -484,6 +575,7 @@ def tracking(
                     [norm_pred_prob5[it][m], trackid_batch[it], cand5id_batch[it][m]]
                 )
 
+        # solutions = probability_maximization_solver(costlist, trackid_batch, list(next_det['det_id']))
         if solver_name == "gurobi":
             solutions = probability_maximization_gurobi_solver(
                 costlist, trackid_batch, list(next_det["det_id"])
@@ -505,64 +597,146 @@ def tracking(
         for so in solutions:
             link_track_id = int(so.split("_")[1])
             link_cand_id = int(so.split("_")[2])
-            linked_det_id.append(link_cand_id)
+            # linked_det_id.append(link_cand_id)
+
+            p_detid = pred_shift_id_pd[pred_shift_id_pd["trackid"] == link_track_id][
+                "p_detid"
+            ].values[0]
+            if link_cand_id != p_detid:
+                dif_cls_gurobi_changeto_1 = True
+            # vis
+
+            use_guribimatchdet = False
+            use_fillup = False
+            dist_changeto_1 = False
+            dif_cls_gurobi_changeto_1 = False
+            temp_dic = {}
 
             if link_cand_id != -1:
+                # if Warning
+                thisid_track = established_track[
+                    established_track.trackid == link_track_id
+                ]
+                last_x = thisid_track.iloc[-1, 1]
+                last_y = thisid_track.iloc[-1, 2]
+
                 ext = next_det[next_det["det_id"] == link_cand_id]
-                ext = ext[["det_id", "pos_x", "pos_y", "size", "intensity", "frame"]]
+                next_x = ext.iloc[0, 0]
+                next_y = ext.iloc[0, 1]
+                dist = np.sqrt((next_x - last_x) ** 2 + (next_y - last_y) ** 2)
+                # ext = ext[['det_id','pos_x','pos_y','frame']]
+                ext = ext[
+                    [
+                        "det_id",
+                        "pos_x",
+                        "pos_y",
+                        "bb_left",
+                        "bb_right",
+                        "bb_top",
+                        "bb_bottom",
+                        "frame",
+                    ]
+                ]
                 ext = ext.rename(columns={"det_id": "trackid"})
                 ext["trackid"] = link_track_id
                 established_track = established_track.append(ext)
+                linked_det_id.append(link_cand_id)
                 established_track_HOLDnum.loc[
                     established_track_HOLDnum["trackid"] == link_track_id, "HOLDnum"
                 ] = 0
-            elif link_cand_id == -1:
+                use_guribimatchdet = True
+
+            stop_4_outview = False
+            stop_4_overhold = False
+            stop_4_predstop = False
+            stop_4_moviestop = False
+
+            if link_cand_id == -1:
                 thisid_HOLDnum = established_track_HOLDnum[
                     established_track_HOLDnum.trackid == link_track_id
                 ].iloc[0, 1]
                 thisid_pred_shift = pred_shift_id_pd[
                     pred_shift_id_pd.trackid == link_track_id
                 ]
-
-                if (
-                    (thisid_HOLDnum < holdnum)
-                    and (this_frame < end_frame - 1)
-                    and (
-                        thisid_pred_shift.iloc[0]["exist_flag"]
-                        > pred_shift_id_pd["exist_flag"].mean()
-                    )
-                ):
+                thisid_track = established_track[
+                    established_track.trackid == link_track_id
+                ]
+                if (thisid_HOLDnum < track_buffer) and (
+                    this_frame < end_frame - 1
+                ):  # and (thisid_pred_shift.iloc[0,3]>pred_shift_id_pd['exist_flag'].mean()):
                     established_track_HOLDnum.loc[
                         established_track_HOLDnum["trackid"] == link_track_id, "HOLDnum"
                     ] = (thisid_HOLDnum + 1)
-                    thisid_track = established_track[
-                        established_track.trackid == link_track_id
-                    ]
-                    last_frame = thisid_track.iloc[-1]["frame"]
-                    last_x = thisid_track.iloc[-1]["pos_x"]
-                    last_y = thisid_track.iloc[-1]["pos_y"]
-                    last_size = thisid_track.iloc[-1]["size"]
-                    last_intensity = thisid_track.iloc[-1]["intensity"]
-                    shift_x = thisid_pred_shift.iloc[0]["shift_x"]
-                    shift_y = thisid_pred_shift.iloc[0]["shift_y"]
-                    shift_size = thisid_pred_shift.iloc[0]["shift_size"]
-                    shift_intensity = thisid_pred_shift.iloc[0]["shift_intensity"]
 
-                    abs_x = thisid_pred_shift.iloc[0]["abs_x"]
-                    abs_y = thisid_pred_shift.iloc[0]["abs_y"]
-                    abs_size = thisid_pred_shift.iloc[0]["abs_size"]
-                    abs_intensity = thisid_pred_shift.iloc[0]["abs_intensity"]
-                    temp_dic = {
-                        "trackid": [link_track_id],
-                        "pos_x": [last_x + shift_x],
-                        "pos_y": [last_y + shift_y],
-                        "size": [last_size + shift_size],
-                        "intensity": [last_intensity + shift_intensity],
-                        "frame": [last_frame + 1],
-                    }
-                    ext = pd.DataFrame(temp_dic)
-                    established_track = established_track.append(ext)
+                    last_frame = thisid_track.iloc[-1, -1]
+                    last_x = thisid_track.iloc[-1, 1]
+                    last_y = thisid_track.iloc[-1, 2]
+                    last_left = thisid_track.iloc[-1, 3]
+                    last_right = thisid_track.iloc[-1, 4]
+                    last_top = thisid_track.iloc[-1, 5]
+                    last_bottom = thisid_track.iloc[-1, 6]
+
+                    if len(thisid_track) < 2:
+                        last_shift_x = 0
+                        last_shift_y = 0
+                        last_shift_left = 0
+                        last_shift_right = 0
+                        last_shift_top = 0
+                        last_shift_bottom = 0
+                    else:
+                        last_shift_x = thisid_pred_shift.iloc[0, 1]
+                        last_shift_y = thisid_pred_shift.iloc[0, 2]
+                        last_shift_left = thisid_pred_shift.iloc[0, 3]
+                        last_shift_right = thisid_pred_shift.iloc[0, 4]
+                        last_shift_top = thisid_pred_shift.iloc[0, 5]
+                        last_shift_bottom = thisid_pred_shift.iloc[0, 6]
+
+                    shift_x = last_shift_x
+                    shift_y = last_shift_y
+                    shift_left = last_shift_left
+                    shift_right = last_shift_right
+                    shift_top = last_shift_top
+                    shift_bottom = last_shift_bottom
+
+                    if (
+                        last_x + shift_x < imgx
+                        and last_y + shift_y < imgy
+                        and last_x + shift_x > 0
+                        and last_y + shift_y > 0
+                    ):
+                        temp_dic = {
+                            "trackid": [link_track_id],
+                            "pos_x": [last_x + shift_x],
+                            "pos_y": [last_y + shift_y],
+                            "bb_left": [last_left + shift_left],
+                            "bb_right": [last_right + shift_right],
+                            "bb_top": [last_top + shift_top],
+                            "bb_bottom": [last_bottom + shift_bottom],
+                            "frame": [last_frame + 1],
+                        }
+                        ext = pd.DataFrame(temp_dic)
+                        established_track = established_track.append(ext)
+                        established_track_HOLDnum.loc[
+                            established_track_HOLDnum["trackid"] == link_track_id,
+                            "HOLDnum",
+                        ] = (
+                            thisid_HOLDnum + 1
+                        )
+                        use_fillup = True
+                    else:  # outer the image, delete
+                        tobeapp = established_track[
+                            established_track["trackid"] == link_track_id
+                        ]
+                        keep_track = keep_track.append(tobeapp)
+                        established_track = established_track[
+                            established_track["trackid"] != link_track_id
+                        ]  # 这样就相当于去掉了那个
+                        stop_4_outview = True
+
                 else:
+                    stop_4_overhold = True if thisid_HOLDnum >= track_buffer else False
+                    stop_4_moviestop = True if this_frame >= (end_frame - 1) else False
+
                     thisholdnum = thisid_HOLDnum
                     if thisholdnum > 0:
                         tobeapp = established_track[
@@ -572,23 +746,58 @@ def tracking(
                         tobeapp = established_track[
                             established_track["trackid"] == link_track_id
                         ]
+
                     keep_track = keep_track.append(tobeapp)
-                    # established_track.reset_index(drop=True,inplace=True)
-                    # established_track = established_track.drop(established_track[established_track['trackid']==link_track_id].index)
                     established_track = established_track[
                         established_track["trackid"] != link_track_id
                     ]
 
+            # vis
+            if vis:
+                vis_matchres(
+                    this_frame,
+                    link_track_id,
+                    output_trackcsv,
+                    link_cand_id,
+                    p_detid,
+                    thisframeimage,
+                    next_det,
+                    use_guribimatchdet,
+                    dif_cls_gurobi_changeto_1,
+                    dist_changeto_1,
+                    use_fillup,
+                    stop_4_moviestop,
+                    stop_4_outview,
+                    stop_4_predstop,
+                    stop_4_overhold,
+                    temp_dic,
+                )
+
         for to_belinkid in list(next_det["det_id"]):
             if to_belinkid not in linked_det_id:
-                ext = next_det[next_det["det_id"] == to_belinkid]
-                ext = ext[["det_id", "pos_x", "pos_y", "size", "intensity", "frame"]]
-                ext = ext.rename(columns={"det_id": "trackid"})
-                established_track = established_track.append(ext)
+                itsconf = detection_total_ori.iloc[to_belinkid]["conf"]
+                if itsconf > new_track_thresh:
+                    ext = next_det[next_det["det_id"] == to_belinkid]
+                    ext = ext[
+                        [
+                            "det_id",
+                            "pos_x",
+                            "pos_y",
+                            "bb_left",
+                            "bb_right",
+                            "bb_top",
+                            "bb_bottom",
+                            "frame",
+                        ]
+                    ]
+                    ext = ext.rename(columns={"det_id": "trackid"})
+                    established_track = established_track.append(ext)
 
-                temp_dic = {"trackid": [ext.iloc[0, 0]], "HOLDnum": [0]}
-                temp_pd = pd.DataFrame(temp_dic)
-                established_track_HOLDnum = established_track_HOLDnum.append(temp_pd)
+                    temp_dic = {"trackid": [ext.iloc[0, 0]], "HOLDnum": [0]}
+                    temp_pd = pd.DataFrame(temp_dic)
+                    established_track_HOLDnum = established_track_HOLDnum.append(
+                        temp_pd
+                    )
 
         if this_frame % 20 == 0:
             print(
