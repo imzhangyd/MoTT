@@ -270,7 +270,7 @@ class pred_biatt_clshead(nn.Module):
         # attn.shape = [bs, n_head, q_token_num, k_token_num]
         size_att = [attn.size()[0],-1,attn.size()[-1]]
         attn = attn.view(size_att).transpose(-1,-2)
-        pred = self.cls_FFN(attn)
+        pred = self.cls_FFN(attn).squeeze(dim=-1)
 
         return pred
 

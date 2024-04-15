@@ -33,11 +33,11 @@ def parse_args_():
     parser.add_argument("--trainfilename", type=str, default="tracks10")
     parser.add_argument(
         "--train_path",
-        default="/mnt/data1/ZYDdata/code/MoTT_particle_notsame/MoTT/dataset/tracks10/trainval_data/add_size/past7_depth2_near5/debugdata.txt",
+        default="/mnt/data1/ZYDdata/code/MoTT_particle_notsame/MoTT/dataset/tracks10/trainval_data/add_size/past7_depth2_near5/merge_train.txt",
     )
     parser.add_argument(
         "--val_path",
-        default="/mnt/data1/ZYDdata/code/MoTT_particle_notsame/MoTT/dataset/tracks10/trainval_data/add_size/past7_depth2_near5/debugdata.txt",
+        default="/mnt/data1/ZYDdata/code/MoTT_particle_notsame/MoTT/dataset/tracks10/trainval_data/add_size/past7_depth2_near5/merge_val.txt",
     )
     parser.add_argument("--traindatamean", nargs="+", type=int, default=None)
     parser.add_argument("--traindatastd", nargs="+", type=int, default=None)
