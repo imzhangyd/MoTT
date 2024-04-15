@@ -19,8 +19,6 @@ class cls_Dataset_oridif_match(Dataset):
     def __init__(self,one_frame_match_list,mean_=None,std_=None):
         super(cls_Dataset_oridif_match,self).__init__()
 
-
-        datapathlist = []
         datapathlist = []
         for line in one_frame_match_list:
             passed = line['pastpos']

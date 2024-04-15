@@ -71,7 +71,7 @@ class cls_Dataset_oridif(Dataset):
                 start_ = 0
                 if -1 in set(aug_passednp[:,-1]):
                     start_ = np.where(aug_passednp[:,-1] == -1)[0][-1]+1
-                    passed_shift[start_-1,:] =0
+                    passed_shift[:start_,:] =0
                 flag_list = [0]*(start_) + [1]*(len(passed_shift)-(start_))
                 flag_np = np.array(flag_list).reshape(-1,1)
                 augpassed_pre = aug_passednp[1:,:].copy()
