@@ -83,7 +83,7 @@ def parse_args_():
     parser.add_argument(
         "--model_ckpt_path",
         type=str,
-        default="./checkpoint/20240412_15_51_17_tracks10_ckpt/20240412_16_05_35.chkpt",
+        default="./checkpoint/20240415_12_54_44_tracks10_ckpt_add12feat_decoup/20240415_13_07_16.chkpt",
     )
 
     parser.add_argument("--holdnum", type=int, default=10)
