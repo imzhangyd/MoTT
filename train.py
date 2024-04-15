@@ -30,16 +30,14 @@ def parse_args_():
 
     # train params
     # data params
-    parser.add_argument(
-        "--trainfilename", type=str, default="MICROTUBULE snr 1247 density low"
-    )
+    parser.add_argument("--trainfilename", type=str, default="tracks10")
     parser.add_argument(
         "--train_path",
-        default="dataset/ISBI_mergesnr_trainval_data/MICROTUBULE snr 1247 density low_train.txt",
+        default="dataset/tracks10/trainval_data/add_size/past7_depth2_near5/merge_train.txt",
     )
     parser.add_argument(
         "--val_path",
-        default="dataset/ISBI_mergesnr_trainval_data/MICROTUBULE snr 1247 density low_val.txt",
+        default="dataset/tracks10/trainval_data/add_size/past7_depth2_near5/merge_val.txt",
     )
     parser.add_argument("--traindatamean", nargs="+", type=int, default=None)
     parser.add_argument("--traindatastd", nargs="+", type=int, default=None)
@@ -116,6 +114,10 @@ if __name__ == "__main__":
     shutil.copy(
         os.path.join(os.path.split(pyfilepath)[0], "engine/trainval.py"),
         os.path.join(outputmodel_path, "trainval.py"),
+    )
+    shutil.copytree(
+        os.path.join(os.path.split(pyfilepath)[0], "transformer"),
+        os.path.join(outputmodel_path, "transformer"),
     )
     # train
     traindatamean, traindatastd = trainval(opt)

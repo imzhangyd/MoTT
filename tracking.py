@@ -77,13 +77,13 @@ def parse_args_():
     parser.add_argument(
         "--test_path",
         type=str,
-        default="dataset/tracks10/test_2024_04_08__14_44_54.csv",
+        default="dataset/tracks10/origin/test_2024_04_08__14_46_12.csv",
     )
     # model path
     parser.add_argument(
         "--model_ckpt_path",
         type=str,
-        default="./checkpoint/20240410_15_19_00_tracks10_ckpt/20240410_15_29_43.chkpt",
+        default="./checkpoint/20240412_15_51_17_tracks10_ckpt/20240412_16_05_35.chkpt",
     )
 
     parser.add_argument("--holdnum", type=int, default=10)
