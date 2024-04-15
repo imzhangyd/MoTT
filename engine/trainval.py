@@ -30,7 +30,7 @@ def train_epoch(model, training_data, optimizer, opt, device, smoothing):
     desc = "  - (Training)   "
     Loss_func = nn.CrossEntropyLoss()
     Loss_func_dist = nn.MSELoss()
-    Loss_func_flag = nn.BCELoss()
+    # Loss_func_flag = nn.BCELoss()
 
     for batch in tqdm(training_data, mininterval=2, desc=desc, leave=False):
 
@@ -54,8 +54,8 @@ def train_epoch(model, training_data, optimizer, opt, device, smoothing):
             pred_shift[label_shift[:, :, -1] > 0.5][:-1],
             label_shift[label_shift[:, :, -1] > 0.5][:-1],
         )
-        loss_flag = Loss_func_flag(pred_shift[..., -1], label_shift[..., -1])
-        loss = loss_prob + loss_dist + loss_flag * 0.01
+        # loss_flag = Loss_func_flag(pred_shift[..., -1], label_shift[..., -1])
+        loss = loss_prob + loss_dist  # + loss_flag * 0.01
 
         loss.backward()
         optimizer.step_and_update_lr()
@@ -63,7 +63,7 @@ def train_epoch(model, training_data, optimizer, opt, device, smoothing):
         # for calulate epoch loss
         total_loss_prob += loss_prob.item() * pred_shift.shape[0]
         total_loss_dist += loss_dist.item() * pred_shift.shape[0]
-        total_loss_flag += loss_flag.item() * pred_shift.shape[0]
+        # total_loss_flag += loss_flag.item() * pred_shift.shape[0]
         total_loss += loss.item() * pred_shift.shape[0]
         # calculate accuracy
         pred_num = torch.argmax(pred_prob, 1)  # bs
@@ -105,7 +105,7 @@ def eval_epoch(model, validation_data, device, opt):
     desc = "  - (Validation) "
     Loss_func = nn.CrossEntropyLoss()
     Loss_func_dist = nn.MSELoss()
-    Loss_func_flag = nn.BCELoss()
+    # Loss_func_flag = nn.BCELoss()
 
     with torch.no_grad():
         for batch in tqdm(validation_data, mininterval=2, desc=desc, leave=False):
@@ -128,12 +128,12 @@ def eval_epoch(model, validation_data, device, opt):
                 pred_shift[label_shift[:, :, -1] > 0.5][:-1],
                 label_shift[label_shift[:, :, -1] > 0.5][:-1],
             )
-            loss_flag = Loss_func_flag(pred_shift[..., -1], label_shift[..., -1])
-            loss = loss_prob + loss_dist + loss_flag * 0.01
+            # loss_flag = Loss_func_flag(pred_shift[..., -1], label_shift[..., -1])
+            loss = loss_prob + loss_dist  # + loss_flag * 0.01
 
             total_loss_prob += loss_prob.item() * pred_shift.shape[0]
             total_loss_dist += loss_dist.item() * pred_shift.shape[0]
-            total_loss_flag += loss_flag.item() * pred_shift.shape[0]
+            # total_loss_flag += loss_flag.item() * pred_shift.shape[0]
             total_loss += loss.item() * pred_shift.shape[0]
 
             # calculate accuracy
