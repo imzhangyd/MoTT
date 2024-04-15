@@ -9,6 +9,7 @@ from transformer.Layers import EncoderLayer, DecoderLayer
 from transformer.SubLayers import PositionwiseFeedForward
 import math
 import matplotlib.pyplot as plt
+from transformer.SubLayers import MultiHeadAttention, PositionwiseFeedForward
 
 
 __author__ = "Yu-Hsiang Huang"
@@ -219,16 +220,16 @@ class PredHeads(nn.Module):
             nn.Linear(d_model // 2, out_size, bias=True),
         )
         self.reg_linear = nn.Linear(n_candi, 1, bias=True)
-        self.cls_FFN = nn.Sequential(
-            nn.Linear(d_model, d_model * 2, bias=True),
-            nn.ReLU(),
-            nn.Dropout(p=dropout),
-            nn.Linear(d_model * 2, d_model, bias=True),
-            nn.Linear(d_model, d_model // 2, bias=True),
-            nn.Linear(d_model // 2, 1, bias=True),
-        )
+        # self.cls_FFN = nn.Sequential(
+        #     nn.Linear(d_model, d_model * 2, bias=True),
+        #     nn.ReLU(),
+        #     nn.Dropout(p=dropout),
+        #     nn.Linear(d_model * 2, d_model, bias=True),
+        #     nn.Linear(d_model, d_model // 2, bias=True),
+        #     nn.Linear(d_model // 2, 1, bias=True),
+        # )
 
-        self.cls_opt = nn.Softmax(dim=-1)
+        # self.cls_opt = nn.Softmax(dim=-1)
 
         self.inoutdim = inoutdim
 
@@ -242,11 +243,39 @@ class PredHeads(nn.Module):
         # pred_pos = pred[:,:,:-1].cumsum(dim=-2)
         # pred = torch.cat([pred_pos,pred[:,:,-1:]],-1)
 
-        cls_h = self.cls_FFN(x).squeeze(dim=-1)
-        conf = self.cls_opt(cls_h)
-        return pred, cls_h
+        # cls_h = self.cls_FFN(x).squeeze(dim=-1)
+        # conf = self.cls_opt(cls_h)
+        return pred#, cls_h
 
 
+class pred_biatt_clshead(nn.Module):
+    """consider decoder output as key value, consider encoder output as query, and use the attention to do classification"""
+
+    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1, n_length=6) -> None:
+        super().__init__()
+        self.cross_attn = MultiHeadAttention(
+            n_head, d_model, d_k, d_v, dropout=dropout, n_length=n_length
+        )
+        self.cls_FFN = nn.Sequential(
+            nn.Linear(n_head*n_length, n_head*n_length * 2, bias=True),
+            nn.ReLU(),
+            nn.Dropout(p=dropout),
+            nn.Linear(n_head*n_length * 2, n_head*n_length, bias=True),
+            nn.Linear(n_head*n_length, n_head*n_length // 2, bias=True),
+            nn.Linear(n_head*n_length // 2, 1, bias=True),
+        )
+    
+    def forward(self, enc_output, dec_ouptut):
+        _, attn = self.cross_attn(q=enc_output,k = dec_ouptut,v=dec_ouptut,mask=None)
+        # attn.shape = [bs, n_head, q_token_num, k_token_num]
+        size_att = [attn.size()[0],-1,attn.size()[-1]]
+        attn = attn.view(size_att).transpose(-1,-2)
+        pred = self.cls_FFN(attn)
+
+        return pred
+
+
+        
 class Transformer(nn.Module):
     """A sequence to sequence model with attention mechanism."""
 
@@ -313,6 +342,14 @@ class Transformer(nn.Module):
             inoutdim=inoutdim,
         )
 
+        self.pred_cls = pred_biatt_clshead(
+            n_head=n_head,
+            d_model=d_model,
+            d_k=d_k,
+            d_v=d_v,
+            dropout=dropout, 
+            n_length=n_passed-1)
+
         assert d_model == d_word_vec
         for p in self.parameters():
             if p.dim() > 1:
@@ -338,6 +375,10 @@ class Transformer(nn.Module):
             return_attns=True,
         )
 
-        pred_shift, pred_score = self.pred_(dec_output)
+        # dec_output --> reg_head --> pred position
+        pred_shift = self.pred_(dec_output)
+
+        # dec_output --> 
+        pred_score = self.pred_cls(enc_output,dec_output)
 
         return pred_shift, pred_score
