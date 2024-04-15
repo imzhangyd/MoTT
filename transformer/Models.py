@@ -367,7 +367,6 @@ class Transformer(nn.Module):
             d_v=d_v,
             dropout=dropout,
             scale_emb=scale_emb,
-            n_length=n_passed,
             inoutdim=inoutdim,
         )
 
