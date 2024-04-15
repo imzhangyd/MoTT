@@ -12,14 +12,14 @@ __author__ = "Yu-Hsiang Huang"
 class EncoderLayer(nn.Module):
     """Compose with two layers"""
 
-    def __init__(self, d_model, d_inner, n_head, d_k, d_v, n_length, dropout=0.1):
+    def __init__(self, d_model, d_inner, n_head, d_k, d_v, dropout=0.1):
         super(EncoderLayer, self).__init__()
         self.layernorm = nn.LayerNorm([d_model])
         self.slf_attn = MultiHeadAttention(
-            n_head, d_model, d_k, d_v, dropout=dropout, n_length=n_length
+            n_head, d_model, d_k, d_v, dropout=dropout
         )
         self.pos_ffn = PositionwiseFeedForward(
-            d_model, d_inner, n_length=n_length, dropout=dropout
+            d_model, d_inner, dropout=dropout
         )
 
     def forward(self, enc_input, slf_attn_mask=None):
@@ -36,18 +36,18 @@ class EncoderLayer(nn.Module):
 class DecoderLayer(nn.Module):
     """Compose with three layers"""
 
-    def __init__(self, d_model, d_inner, n_head, d_k, d_v, n_length, dropout=0.1):
+    def __init__(self, d_model, d_inner, n_head, d_k, d_v, dropout=0.1):
         super(DecoderLayer, self).__init__()
         self.layernorm1 = nn.LayerNorm([d_model])
         self.layernorm2 = nn.LayerNorm([d_model])
         self.slf_attn = MultiHeadAttention(
-            n_head, d_model, d_k, d_v, dropout=dropout, n_length=n_length
+            n_head, d_model, d_k, d_v, dropout=dropout
         )
         self.enc_attn = MultiHeadAttention(
-            n_head, d_model, d_k, d_v, dropout=dropout, n_length=n_length
+            n_head, d_model, d_k, d_v, dropout=dropout
         )
         self.pos_ffn = PositionwiseFeedForward(
-            d_model, d_inner, n_length=n_length, dropout=dropout
+            d_model, d_inner, dropout=dropout
         )
 
     def forward(

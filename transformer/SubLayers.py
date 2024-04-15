@@ -15,7 +15,7 @@ __modified_by__ = "Yudong Zhang"
 class MultiHeadAttention(nn.Module):
     """Multi-Head Attention module"""
 
-    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1, n_length=2):
+    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1):
         super().__init__()
 
         self.n_head = n_head
@@ -74,7 +74,7 @@ class MultiHeadAttention(nn.Module):
 class PositionwiseFeedForward(nn.Module):
     """A two-feed-forward-layer module"""
 
-    def __init__(self, d_in, d_hid, n_length, dropout=0.1):
+    def __init__(self, d_in, d_hid, dropout=0.1):
         super().__init__()
         self.w_1 = nn.Linear(d_in, d_hid)  # position-wise
         self.w_2 = nn.Linear(d_hid, d_in)  # position-wise
