@@ -165,7 +165,6 @@ class Decoder(nn.Module):
 
     def forward(self, trg_seq, trg_mask, enc_output, src_mask, return_attns=False):
 
-
         # trg_seq [bs, num_cand, len_future, featnum]
         dec_slf_attn_list, dec_enc_attn_list = [], []
         trg_seq = trg_seq.view(
@@ -247,7 +246,7 @@ class Pred_clshead(nn.Module):
         dropout=0.1,
         inoutdim=3,
     ):
-        super(PredHeads, self).__init__()
+        super(Pred_clshead, self).__init__()
         # self.reg_mlp = nn.Sequential(
         #     nn.Linear(d_model, d_model, bias=True),
         #     nn.LayerNorm(d_model),
@@ -284,7 +283,6 @@ class Pred_clshead(nn.Module):
         return cls_h
 
 
-
 class Pred_reghead(nn.Module):
     def __init__(
         self,
@@ -294,7 +292,7 @@ class Pred_reghead(nn.Module):
         # dropout=0.1,
         inoutdim=3,
     ):
-        super(PredHeads, self).__init__()
+        super(Pred_reghead, self).__init__()
         self.reg_mlp = nn.Sequential(
             nn.Linear(d_model, d_model, bias=True),
             nn.LayerNorm(d_model),
@@ -328,8 +326,8 @@ class Pred_reghead(nn.Module):
 
         # cls_h = self.cls_FFN(x).squeeze(dim=-1)
         # conf = self.cls_opt(cls_h)
-        return pred #, cls_h
-    
+        return pred  # , cls_h
+
 
 class Transformer(nn.Module):
     """A sequence to sequence model with attention mechanism."""
@@ -403,9 +401,9 @@ class Transformer(nn.Module):
 
         self.pred_reghead = Pred_reghead(
             d_model=self.d_model,
-            n_candi=n_passed-1,
+            n_candi=n_passed - 1,
             out_size=n_future * inoutdim,
-            inoutdim=inoutdim
+            inoutdim=inoutdim,
         )
 
         assert d_model == d_word_vec
