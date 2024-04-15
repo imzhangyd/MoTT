@@ -527,10 +527,10 @@ def tracking(
                 if (
                     (thisid_HOLDnum < holdnum)
                     and (this_frame < end_frame - 1)
-                    and (
-                        thisid_pred_shift.iloc[0]["exist_flag"]
-                        > pred_shift_id_pd["exist_flag"].mean()
-                    )
+                    # and (
+                    #     thisid_pred_shift.iloc[0]["exist_flag"]
+                    #     > pred_shift_id_pd["exist_flag"].mean()
+                    # )
                 ):
                     established_track_HOLDnum.loc[
                         established_track_HOLDnum["trackid"] == link_track_id, "HOLDnum"
