@@ -77,7 +77,7 @@ def parse_args_():
     parser.add_argument(
         "--test_path",
         type=str,
-        default="dataset/tracks10/origin/test_2024_04_08__14_46_12.csv",
+        default="/mnt/data1/ZYDdata/code/MoTT_particle_notsame/MoTT/dataset/tracks10/origin/test_2024_04_08__14_46_12.csv",
     )
     # model path
     parser.add_argument(
