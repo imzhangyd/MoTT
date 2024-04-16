@@ -83,7 +83,7 @@ def parse_args_():
     parser.add_argument(
         "--model_ckpt_path",
         type=str,
-        default="./checkpoint/20240415_14_18_06_tracks10_del_existflag_ckpt/20240415_14_31_00.chkpt",
+        default="/mnt/data1/ZYDdata/code/MoTT_particle_notsame/MoTT/checkpoint/20240415_14_18_06_tracks10_del_existflag_ckpt/20240415_14_31_00.chkpt",
     )
 
     parser.add_argument("--holdnum", type=int, default=10)
