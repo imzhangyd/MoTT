@@ -77,13 +77,13 @@ def parse_args_():
     parser.add_argument(
         "--test_path",
         type=str,
-        default="dataset/tracks10/origin/test_2024_04_08__14_46_12.csv",
+        default="/mnt/data1/ZYDdata/code/MoTT_particle_notsame/MoTT/dataset/tracks10/origin/test_2024_04_08__14_46_12.csv",
     )
     # model path
     parser.add_argument(
         "--model_ckpt_path",
         type=str,
-        default="./checkpoint/20240412_15_51_17_tracks10_ckpt/20240412_16_05_35.chkpt",
+        default="./checkpoint/20240415_16_45_06_tracks10_biatten_ckpt/20240415_17_01_56.chkpt",
     )
 
     parser.add_argument("--holdnum", type=int, default=10)
