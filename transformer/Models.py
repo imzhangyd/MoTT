@@ -9,7 +9,7 @@ from transformer.Layers import EncoderLayer, DecoderLayer
 from transformer.SubLayers import PositionwiseFeedForward
 import math
 import matplotlib.pyplot as plt
-
+from einops import repeat
 
 __author__ = "Yu-Hsiang Huang"
 __modified_by__ = "Yudong Zhang"
@@ -313,6 +313,8 @@ class Transformer(nn.Module):
             inoutdim=inoutdim,
         )
 
+        self.vit_token = nn.Parameter(torch.randn(1, 1, inoutdim))
+
         assert d_model == d_word_vec
         for p in self.parameters():
             if p.dim() > 1:
@@ -323,7 +325,13 @@ class Transformer(nn.Module):
         # src_mask = torch.matmul(
         #     src_seq[:, :, -1:], src_seq[:, :, -1:].transpose(-2, -1)
         # )
+        cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b = src_seq.size()[0])
+        src_seq = torch.cat((cls_tokens, src_seq), dim=1)
         enc_output, *_ = self.encoder(src_seq, None, return_attns=True)
+        
+        enc_output = enc_output[:,0]
+
+        
         # enc_output [bs, len_past, dim]
         # trg_seq [bs, num_cand, len_future, dim]
         # croatt_mask = torch.matmul(
