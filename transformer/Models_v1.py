@@ -11,7 +11,6 @@ import math
 import matplotlib.pyplot as plt
 from einops import repeat
 
-
 __author__ = "Yu-Hsiang Huang"
 __modified_by__ = "Yudong Zhang"
 
@@ -247,95 +246,6 @@ class PredHeads(nn.Module):
         conf = self.cls_opt(cls_h)
         return pred, cls_h
 
-class Pred_clshead(nn.Module):
-    def __init__(
-        self,
-        d_model,
-        dropout=0.1,
-        inoutdim=3,
-    ):
-        super(Pred_clshead, self).__init__()
-        # self.reg_mlp = nn.Sequential(
-        #     nn.Linear(d_model, d_model, bias=True),
-        #     nn.LayerNorm(d_model),
-        #     nn.ReLU(),
-        #     nn.Linear(d_model, d_model // 2, bias=True),
-        #     nn.Linear(d_model // 2, out_size, bias=True),
-        # )
-        # self.reg_linear = nn.Linear(n_candi, 1, bias=True)
-        self.cls_FFN = nn.Sequential(
-            nn.Linear(d_model, d_model * 2, bias=True),
-            nn.ReLU(),
-            nn.Dropout(p=dropout),
-            nn.Linear(d_model * 2, d_model, bias=True),
-            nn.Linear(d_model, d_model // 2, bias=True),
-            nn.Linear(d_model // 2, 1, bias=True),
-        )
-
-        self.cls_opt = nn.Softmax(dim=-1)
-
-        self.inoutdim = inoutdim
-
-    def forward(self, x):  # bs,candi_num=25, d_model
-        # pred = self.reg_mlp(x)  # bs,candi_num=25, inoutdim*n_length
-        # pred = pred.transpose(-1, -2)  # bs, inoutdim*n_length,candi_num=25
-        # pred = self.reg_linear(pred).squeeze(dim=-1)  # bs, inoutdim*n_length
-        # pred = pred.view(*pred.shape[0:1], -1, self.inoutdim)  # bs, n_length, inoutdim
-        # inoutdim = normed[s_x, s_y, s_size, s_inten,  x, y, size, inten,   abs shiftx, abs shift y, abs dist,     flag]
-        # pred[..., -1] = torch.sigmoid(pred[..., -1])
-        # pred_pos = pred[:,:,:-1].cumsum(dim=-2)
-        # pred = torch.cat([pred_pos,pred[:,:,-1:]],-1)
-
-        cls_h = self.cls_FFN(x).squeeze(dim=-1)
-        conf = self.cls_opt(cls_h)
-        return cls_h
-
-
-class Pred_reghead(nn.Module):
-    def __init__(
-        self,
-        d_model,
-        n_candi=4,
-        out_size=4,
-        # dropout=0.1,
-        inoutdim=3,
-    ):
-        super(Pred_reghead, self).__init__()
-        self.reg_mlp = nn.Sequential(
-            nn.Linear(d_model, d_model, bias=True),
-            nn.LayerNorm(d_model),
-            nn.ReLU(),
-            nn.Linear(d_model, d_model // 2, bias=True),
-            nn.Linear(d_model // 2, out_size, bias=True),
-        )
-        self.reg_linear = nn.Linear(n_candi, 1, bias=True)
-        # self.cls_FFN = nn.Sequential(
-        #     nn.Linear(d_model, d_model * 2, bias=True),
-        #     nn.ReLU(),
-        #     nn.Dropout(p=dropout),
-        #     nn.Linear(d_model * 2, d_model, bias=True),
-        #     nn.Linear(d_model, d_model // 2, bias=True),
-        #     nn.Linear(d_model // 2, 1, bias=True),
-        # )
-
-        # self.cls_opt = nn.Softmax(dim=-1)
-
-        self.inoutdim = inoutdim
-
-    def forward(self, x):  # bs,candi_num=25, d_model
-        pred = self.reg_mlp(x)  # bs,candi_num=25, inoutdim*n_length
-        pred = pred.transpose(-1, -2)  # bs, inoutdim*n_length,candi_num=25
-        pred = self.reg_linear(pred).squeeze(dim=-1)  # bs, inoutdim*n_length
-        pred = pred.view(*pred.shape[0:1], -1, self.inoutdim)  # bs, n_length, inoutdim
-        # inoutdim = normed[s_x, s_y, s_size, s_inten,  x, y, size, inten,   abs shiftx, abs shift y, abs dist,     flag]
-        pred[..., -1] = torch.sigmoid(pred[..., -1])
-        # pred_pos = pred[:,:,:-1].cumsum(dim=-2)
-        # pred = torch.cat([pred_pos,pred[:,:,-1:]],-1)
-
-        # cls_h = self.cls_FFN(x).squeeze(dim=-1)
-        # conf = self.cls_opt(cls_h)
-        return pred  # , cls_h
-    
 
 class Transformer(nn.Module):
     """A sequence to sequence model with attention mechanism."""
@@ -392,31 +302,18 @@ class Transformer(nn.Module):
             inoutdim=inoutdim,
         )
 
-        # self.pred_ = PredHeads(
-        #     d_model=self.d_model,
-        #     n_candi=n_candi,
-        #     out_size=n_future * inoutdim,
-        #     dropout=dropout,
-        #     reg_h_dim=128,
-        #     dis_h_dim=128,
-        #     cls_h_dim=128,
-        #     inoutdim=inoutdim,
-        # )
-
-        self.pred_clshead = Pred_clshead(
+        self.pred_ = PredHeads(
             d_model=self.d_model,
-            dropout=dropout,
-            inoutdim=inoutdim,
-        )
-
-        self.pred_reghead = Pred_reghead(
-            d_model=self.d_model,
-            n_candi=1,
+            n_candi=n_candi,
             out_size=n_future * inoutdim,
+            dropout=dropout,
+            reg_h_dim=128,
+            dis_h_dim=128,
+            cls_h_dim=128,
             inoutdim=inoutdim,
         )
 
-        self.vit_token = nn.Parameter(torch.randn(1, 2, inoutdim))
+        self.vit_token = nn.Parameter(torch.randn(1, 1, inoutdim))
 
         assert d_model == d_word_vec
         for p in self.parameters():
@@ -428,12 +325,11 @@ class Transformer(nn.Module):
         # src_mask = torch.matmul(
         #     src_seq[:, :, -1:], src_seq[:, :, -1:].transpose(-2, -1)
         # )
-        # v2: use cls token + decoupling
-        cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b = src_seq.size()[0])
-        src_seq = torch.cat((cls_tokens, src_seq), dim=1)
+        global_token = repeat(self.vit_token, '1 1 d -> b 1 d', b = src_seq.size()[0])
+        src_seq = torch.cat((global_token, src_seq), dim=1)
         enc_output, *_ = self.encoder(src_seq, None, return_attns=True)
-        
-        # enc_output = enc_output[:,0]
+
+        enc_output = enc_output[:,0]
 
         
         # enc_output [bs, len_past, dim]
@@ -445,13 +341,11 @@ class Transformer(nn.Module):
         dec_output, *_ = self.decoder(
             trg_seq=trg_seq,
             trg_mask=None,
-            enc_output=enc_output[:,0],
+            enc_output=enc_output,
             src_mask=None,
             return_attns=True,
         )
 
-        # pred_shift, pred_score = self.pred_(dec_output)
-        pred_score = self.pred_clshead(dec_output)
-        pred_shift = self.pred_reghead(enc_output[:,1])
+        pred_shift, pred_score = self.pred_(dec_output)
 
         return pred_shift, pred_score

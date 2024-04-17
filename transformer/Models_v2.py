@@ -11,7 +11,6 @@ import math
 import matplotlib.pyplot as plt
 from einops import repeat
 
-
 __author__ = "Yu-Hsiang Huang"
 __modified_by__ = "Yudong Zhang"
 
@@ -416,7 +415,7 @@ class Transformer(nn.Module):
             inoutdim=inoutdim,
         )
 
-        self.vit_token = nn.Parameter(torch.randn(1, 2, inoutdim))
+        self.vit_token = nn.Parameter(torch.randn(1, 1, inoutdim))
 
         assert d_model == d_word_vec
         for p in self.parameters():
@@ -433,7 +432,7 @@ class Transformer(nn.Module):
         src_seq = torch.cat((cls_tokens, src_seq), dim=1)
         enc_output, *_ = self.encoder(src_seq, None, return_attns=True)
         
-        # enc_output = enc_output[:,0]
+        enc_output = enc_output[:,0]
 
         
         # enc_output [bs, len_past, dim]
@@ -445,13 +444,13 @@ class Transformer(nn.Module):
         dec_output, *_ = self.decoder(
             trg_seq=trg_seq,
             trg_mask=None,
-            enc_output=enc_output[:,0],
+            enc_output=enc_output,
             src_mask=None,
             return_attns=True,
         )
 
         # pred_shift, pred_score = self.pred_(dec_output)
         pred_score = self.pred_clshead(dec_output)
-        pred_shift = self.pred_reghead(enc_output[:,1])
+        pred_shift = self.pred_reghead(enc_output)
 
         return pred_shift, pred_score
