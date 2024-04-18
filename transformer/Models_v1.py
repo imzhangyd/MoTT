@@ -329,7 +329,7 @@ class Transformer(nn.Module):
         src_seq = torch.cat((global_token, src_seq), dim=1)
         enc_output, *_ = self.encoder(src_seq, None, return_attns=True)
 
-        enc_output = enc_output[:,0]
+        enc_output = enc_output[:,:1]
 
         
         # enc_output [bs, len_past, dim]

@@ -429,7 +429,7 @@ class Transformer(nn.Module):
         #     src_seq[:, :, -1:], src_seq[:, :, -1:].transpose(-2, -1)
         # )
         # v2: use cls token + decoupling
-        cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b = src_seq.size()[0])
+        cls_tokens = repeat(self.vit_token, 'a b d -> (m a) b d', m=src_seq.size()[0])
         src_seq = torch.cat((cls_tokens, src_seq), dim=1)
         enc_output, *_ = self.encoder(src_seq, None, return_attns=True)
         
@@ -445,13 +445,13 @@ class Transformer(nn.Module):
         dec_output, *_ = self.decoder(
             trg_seq=trg_seq,
             trg_mask=None,
-            enc_output=enc_output[:,0],
+            enc_output=enc_output[:,:1],
             src_mask=None,
             return_attns=True,
         )
 
         # pred_shift, pred_score = self.pred_(dec_output)
         pred_score = self.pred_clshead(dec_output)
-        pred_shift = self.pred_reghead(enc_output[:,1])
+        pred_shift = self.pred_reghead(enc_output[:,1:2])
 
         return pred_shift, pred_score
