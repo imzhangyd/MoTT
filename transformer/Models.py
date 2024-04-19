@@ -270,20 +270,6 @@ class Decoder_1(nn.Module):
 
         return (dec_output,)
 
-    def forward(self, x):  # bs,candi_num=25, d_model
-        # pred = self.reg_mlp(x)  # bs,candi_num=25, inoutdim*n_length
-        # pred = pred.transpose(-1, -2)  # bs, inoutdim*n_length,candi_num=25
-        # pred = self.reg_linear(pred).squeeze(dim=-1)  # bs, inoutdim*n_length
-        # pred = pred.view(*pred.shape[0:1], -1, self.inoutdim)  # bs, n_length, inoutdim
-        # inoutdim = normed[s_x, s_y, s_size, s_inten,  x, y, size, inten,   abs shiftx, abs shift y, abs dist,     flag]
-        # pred[..., -1] = torch.sigmoid(pred[..., -1])
-        # pred_pos = pred[:,:,:-1].cumsum(dim=-2)
-        # pred = torch.cat([pred_pos,pred[:,:,-1:]],-1)
-
-        cls_h = self.cls_FFN(x).squeeze(dim=-1)
-        conf = self.cls_opt(cls_h)
-        return cls_h
-
 
 class Pred_reghead(nn.Module):
     def __init__(
@@ -481,8 +467,8 @@ class Transformer(nn.Module):
         future_tokens = repeat(
             self.vit_token, "a b d -> (m a) b d", m=src_seq.size()[0]
         )
-
-        dec_output, *_ = self.decoder_1(  # [bs, n_future, d_model]
+        # [bs, n_future, d_model]
+        dec_output, *_ = self.decoder_1(
             trg_seq=future_tokens,
             trg_mask=None,
             enc_output=enc_output,
