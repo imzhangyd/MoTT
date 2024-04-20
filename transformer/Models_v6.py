@@ -1,6 +1,6 @@
 """ Define the Transformer model """
 
-# v22
+# v6
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,6 +10,8 @@ from transformer.SubLayers import PositionwiseFeedForward
 import math
 import matplotlib.pyplot as plt
 from einops import repeat
+from transformer.SubLayers import MultiHeadAttention
+
 
 __author__ = "Yu-Hsiang Huang"
 __modified_by__ = "Yudong Zhang"
@@ -125,73 +127,6 @@ class Encoder(nn.Module):
         return (enc_output,)
 
 
-class Encoder_2(nn.Module):
-    """A encoder model with self attention mechanism."""
-
-    def __init__(
-        self,
-        d_word_vec,
-        n_layers,
-        n_head,
-        d_k,
-        d_v,
-        d_model,
-        d_inner,
-        dropout=0.1,
-        n_position=200,
-        scale_emb=True,
-        n_length=7,
-        inoutdim=3,
-    ):
-
-        super().__init__()
-
-        self.src_word_emb = nn.Linear(inoutdim * n_length, d_model)
-        self.position_enc = PositionalEncoding(d_word_vec, n_position=n_position)
-        self.dropout = nn.Dropout(p=dropout)
-        self.layer_stack = nn.ModuleList(
-            [
-                EncoderLayer(
-                    d_model,
-                    d_inner,
-                    n_head,
-                    d_k,
-                    d_v,
-                    n_length=n_length,
-                    dropout=dropout,
-                )
-                for _ in range(n_layers)
-            ]
-        )
-        self.layer_norm = nn.LayerNorm([d_model], eps=1e-6)
-
-        self.scale_emb = scale_emb
-        self.d_model = d_model
-
-    def forward(self, src_seq, src_mask, return_attns=False):
-
-        enc_slf_attn_list = []
-        src_seq = src_seq.view(
-            list(src_seq.size())[:-2] + [-1]
-        )  # [bs, num_cand, len_future*featnum]
-        # -- Forward
-        enc_output = self.src_word_emb(
-            src_seq
-        )  # change all_zero item [bs, length-1, d_model]
-        if self.scale_emb:
-            enc_output *= self.d_model**0.5  # amplification
-        enc_output = self.dropout(self.position_enc(enc_output, passed=True))
-        # enc_output = self.layer_norm(enc_output)
-
-        for enc_layer in self.layer_stack:
-            enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=src_mask)
-            enc_slf_attn_list += [enc_slf_attn] if return_attns else []
-        enc_output = self.layer_norm(enc_output)
-        if return_attns:
-            return enc_output, enc_slf_attn_list
-        return (enc_output,)
-
-
 class Decoder(nn.Module):
     """A decoder model with self attention mechanism."""
 
@@ -285,7 +220,7 @@ class Decoder_1(nn.Module):
 
         super().__init__()
 
-        self.trg_word_emb = nn.Linear(inoutdim, d_model)
+        self.trg_word_emb = nn.Linear(inoutdim * n_length, d_model)
         self.position_enc = PositionalEncoding(d_word_vec, n_position=n_position)
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList(
@@ -381,35 +316,138 @@ class Pred_clshead(nn.Module):
 
 
 class Pred_reghead(nn.Module):
-    def __init__(
-        self,
-        d_model,
-        inoutdim=3,
-    ):
+    def __init__(self, d_model, inoutdim=3, n_candi=6, n_future=2):
         super(Pred_reghead, self).__init__()
         self.reg_mlp = nn.Sequential(
             nn.Linear(d_model, d_model, bias=True),
             nn.LayerNorm(d_model),
             nn.ReLU(),
             nn.Linear(d_model, d_model // 2, bias=True),
-            nn.Linear(d_model // 2, inoutdim, bias=True),
+            nn.Linear(d_model // 2, inoutdim * n_future, bias=True),
         )
-        # self.reg_linear = nn.Linear(n_candi, 1, bias=True)
+        self.reg_linear = nn.Linear(n_candi, 1, bias=True)
 
         self.inoutdim = inoutdim
 
-    def forward(self, x):  # bs,n_length, d_model
-        pred = self.reg_mlp(x)  # bs, n_length, inoutdim
-        # pred = pred.transpose(-1, -2)  # bs, inoutdim*n_length,candi_num=25
-        # pred = self.reg_linear(pred).squeeze(dim=-1)  # bs, inoutdim*n_length
-        # pred = pred.view(*pred.shape[0:1], -1, self.inoutdim)  # bs, n_length, inoutdim
+    def forward(self, x):  # bs,n_past-1, d_model
+        pred = self.reg_mlp(x)  # bs, n_past-1, inoutdim*n_length
+        pred = pred.transpose(-1, -2)  # bs, inoutdim*n_length,candi_num=25
+        pred = self.reg_linear(pred).squeeze(dim=-1)  # bs, inoutdim*n_length
+        pred = pred.view(*pred.shape[0:1], -1, self.inoutdim)  # bs, n_length, inoutdim
         # inoutdim = normed[s_x, s_y, s_size, s_inten,  x, y, size, inten,   abs shiftx, abs shift y, abs dist,     flag]
         pred[..., -1] = torch.sigmoid(pred[..., -1])
         # pred_pos = pred[:,:,:-1].cumsum(dim=-2)
         # pred = torch.cat([pred_pos,pred[:,:,-1:]],-1)
+
         # cls_h = self.cls_FFN(x).squeeze(dim=-1)
         # conf = self.cls_opt(cls_h)
         return pred  # , cls_h
+
+
+class pred_biatt_clshead(nn.Module):
+    """consider decoder output as key value, consider encoder output as query, and use the attention to do classification"""
+
+    def __init__(
+        self,
+        n_head,
+        d_model,
+        d_k,
+        d_v,
+        dropout=0.1,
+        n_length=6,
+        out_size=4,
+        inoutdim=12,
+    ) -> None:
+        super().__init__()
+        self.cross_attn = MultiHeadAttention(
+            n_head, d_model, d_k, d_v, dropout=dropout, n_length=n_length
+        )
+        self.cls_FFN = nn.Sequential(
+            nn.Linear(n_head * n_length, n_head * n_length * 2, bias=True),
+            nn.ReLU(),
+            nn.Dropout(p=dropout),
+            nn.Linear(n_head * n_length * 2, n_head * n_length, bias=True),
+            nn.Linear(n_head * n_length, n_head * n_length // 2, bias=True),
+            nn.Linear(n_head * n_length // 2, 1, bias=True),
+        )
+
+        # self.reg_mlp = nn.Sequential(
+        #     nn.Linear(d_model, d_model, bias=True),
+        #     nn.LayerNorm(d_model),
+        #     nn.ReLU(),
+        #     nn.Linear(d_model, d_model // 2, bias=True),
+        #     nn.Linear(d_model // 2, out_size, bias=True),
+        # )
+        # self.reg_linear = nn.Linear(n_length, 1, bias=True)
+        # self.inoutdim = inoutdim
+
+    def forward(self, enc_output, dec_ouptut):
+        enc_output, attn = self.cross_attn(
+            q=enc_output, k=dec_ouptut, v=dec_ouptut, mask=None
+        )
+        # attn.shape = [bs, n_head, q_token_num, k_token_num]
+        size_att = [attn.size()[0], -1, attn.size()[-1]]
+        attn = attn.view(size_att).transpose(-1, -2)
+        prob = self.cls_FFN(attn).squeeze(dim=-1)
+        return prob
+
+        # pred = self.reg_mlp(enc_output)  # bs,past_len=6, inoutdim*n_length
+        # pred = pred.transpose(-1, -2)  # bs, inoutdim*n_length,past_len=6
+        # pred = self.reg_linear(pred).squeeze(dim=-1)  # bs, inoutdim*n_length
+        # pred = pred.view(*pred.shape[0:1], -1, self.inoutdim)  # bs, n_length, inoutdim
+        # # inoutdim = normed[s_x, s_y, s_size, s_inten,  x, y, size, inten,   abs shiftx, abs shift y, abs dist,     flag]
+        # pred[..., -1] = torch.sigmoid(pred[..., -1])
+
+        # return pred, prob
+
+
+class PredHeads(nn.Module):
+    def __init__(
+        self,
+        d_model,
+        n_candi=4,
+        out_size=4,
+        dropout=0.1,
+        reg_h_dim=128,
+        dis_h_dim=128,
+        cls_h_dim=128,
+        inoutdim=3,
+    ):
+        super(PredHeads, self).__init__()
+        self.reg_mlp = nn.Sequential(
+            nn.Linear(d_model, d_model, bias=True),
+            nn.LayerNorm(d_model),
+            nn.ReLU(),
+            nn.Linear(d_model, d_model // 2, bias=True),
+            nn.Linear(d_model // 2, out_size, bias=True),
+        )
+        self.reg_linear = nn.Linear(n_candi, 1, bias=True)
+        self.cls_FFN = nn.Sequential(
+            nn.Linear(d_model, d_model * 2, bias=True),
+            nn.ReLU(),
+            nn.Dropout(p=dropout),
+            nn.Linear(d_model * 2, d_model, bias=True),
+            nn.Linear(d_model, d_model // 2, bias=True),
+            nn.Linear(d_model // 2, 1, bias=True),
+        )
+
+        self.cls_opt = nn.Softmax(dim=-1)
+
+        self.inoutdim = inoutdim
+
+    def forward(self, x):  # bs,candi_num=25, d_model
+        pred = self.reg_mlp(x)  # bs,candi_num=25, inoutdim*n_length
+        pred = pred.transpose(-1, -2)  # bs, inoutdim*n_length,candi_num=25
+        pred = self.reg_linear(pred).squeeze(dim=-1)  # bs, inoutdim*n_length
+        pred = pred.view(*pred.shape[0:1], -1, self.inoutdim)  # bs, n_length, inoutdim
+        # inoutdim = normed[s_x, s_y, s_size, s_inten,  x, y, size, inten,   abs shiftx, abs shift y, abs dist,     flag]
+        pred[..., -1] = torch.sigmoid(pred[..., -1])
+        # pred_pos = pred[:,:,:-1].cumsum(dim=-2)
+        # pred = torch.cat([pred_pos,pred[:,:,-1:]],-1)
+
+        cls_h = self.cls_FFN(x).squeeze(dim=-1)
+        conf = self.cls_opt(cls_h)
+        return pred, cls_h
 
 
 class Transformer(nn.Module):
@@ -452,20 +490,6 @@ class Transformer(nn.Module):
             inoutdim=inoutdim,
         )
 
-        self.encoder_2 = Encoder_2(
-            n_position=n_position,
-            d_word_vec=d_word_vec,
-            d_model=d_model,
-            d_inner=d_inner,
-            n_layers=n_layers,
-            n_head=n_head,
-            d_k=d_k,
-            d_v=d_v,
-            dropout=dropout,
-            scale_emb=scale_emb,
-            n_length=n_future,
-            inoutdim=inoutdim,
-        )
         self.decoder_1 = Decoder_1(
             n_position=n_position,
             d_word_vec=d_word_vec,
@@ -481,22 +505,55 @@ class Transformer(nn.Module):
             inoutdim=inoutdim,
         )
 
-        self.vit_token = nn.Parameter(torch.randn(1, n_future, inoutdim))
+        self.vit_token = nn.Parameter(
+            torch.randn(1, n_passed - 1, inoutdim * n_future)
+        )  # represent original past seq
 
-        self.pred_clshead = Pred_clshead(
-            d_model=self.d_model,
+        self.decoder_2 = Decoder(
+            n_position=n_position,
+            d_word_vec=d_word_vec,
+            d_model=d_model,
+            d_inner=d_inner,
+            n_layers=n_layers,
+            n_head=n_head,
+            d_k=d_k,
+            d_v=d_v,
             dropout=dropout,
+            scale_emb=scale_emb,
+            n_length=n_future,
             inoutdim=inoutdim,
         )
+
+        # self.pred_clshead = Pred_clshead(
+        #     d_model=self.d_model,
+        #     dropout=dropout,
+        #     inoutdim=inoutdim,
+        # )
 
         self.pred_reghead = Pred_reghead(
-            d_model=self.d_model,
-            inoutdim=inoutdim,
+            d_model=self.d_model, inoutdim=inoutdim, n_candi=n_passed - 1
         )
-        self.convert_ = nn.Sequential(
-            nn.Linear(self.d_model * n_future, self.d_model * n_future, bias=True),
-            nn.Linear(self.d_model * n_future, d_model, bias=True),
-            nn.LayerNorm(self.d_model),
+
+        # self.pred_ = PredHeads(
+        #     d_model=self.d_model,
+        #     n_candi=n_candi,
+        #     out_size=n_future * inoutdim,
+        #     dropout=dropout,
+        #     reg_h_dim=128,
+        #     dis_h_dim=128,
+        #     cls_h_dim=128,
+        #     inoutdim=inoutdim,
+        # )
+
+        self.pred_cls = pred_biatt_clshead(
+            n_head=n_head,
+            d_model=d_model,
+            d_k=d_k,
+            d_v=d_v,
+            dropout=dropout,
+            n_length=n_passed - 1,
+            out_size=n_future * inoutdim,
+            inoutdim=inoutdim,
         )
 
         assert d_model == d_word_vec
@@ -512,25 +569,35 @@ class Transformer(nn.Module):
         enc_output, *_ = self.encoder(src_seq, None, return_attns=True)
         # enc_output [bs, len_past, dim]
         # trg_seq [bs, num_cand, len_future, dim]
+        # croatt_mask = torch.matmul(
+        #     torch.ones_like(trg_seq[:, :, 0, -1:]),
+        #     src_seq[:, :, -1:].transpose(-2, -1),
+        # )
 
         future_tokens = repeat(
             self.vit_token, "a b d -> (m a) b d", m=src_seq.size()[0]
         )
 
-        dec_output, *_ = self.decoder_1(  # [bs, n_future, d_model]
+        dec_output, *_ = self.decoder_1(
             trg_seq=future_tokens,
             trg_mask=None,
             enc_output=enc_output,
             src_mask=None,
             return_attns=True,
         )
-
         pred_shift = self.pred_reghead(dec_output)
-        trg_seq = torch.cat((pred_shift.unsqueeze(1), trg_seq), dim=1)
 
-        enc_output, *_ = self.encoder_2(trg_seq, None, return_attns=True)
-        # enc_output  [bs, len_cand+1, dim]
+        dec_output2, *_ = self.decoder_2(
+            trg_seq=trg_seq,
+            trg_mask=None,
+            enc_output=dec_output,
+            src_mask=None,
+            return_attns=True,
+        )
 
-        pred_score = self.pred_clshead(enc_output[:, 1:])
+        # pred_score = self.pred_clshead(dec_output)
+        pred_score = self.pred_cls(dec_output, dec_output2)
+
+        # pred_shift, pred_score = self.pred_(dec_output)
 
         return pred_shift, pred_score

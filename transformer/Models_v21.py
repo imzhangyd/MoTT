@@ -1,6 +1,6 @@
 """ Define the Transformer model """
 
-# from cv2 import dnn_Model
+# v21
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

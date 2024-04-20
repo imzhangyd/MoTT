@@ -1,6 +1,6 @@
 """ Define the Transformer model """
 
-# from cv2 import dnn_Model
+# v23
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -453,6 +453,7 @@ class Transformer(nn.Module):
             n_length=n_future,
             inoutdim=inoutdim,
         )
+
         self.decoder_1 = Decoder_1(
             n_position=n_position,
             d_word_vec=d_word_vec,
