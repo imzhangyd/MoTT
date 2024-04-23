@@ -3,7 +3,7 @@ import os
 import subprocess
 
 
-track_respath = "/mnt/data1/ZYDdata/code/MoTT/prediction/20240419_cascade_v32_hold0"
+track_respath = "./prediction/20240419_cascade_v31_hold0"
 alltrackrepathlist = glob.glob(os.path.join(track_respath, "**"))
 
 for repa in alltrackrepathlist:
