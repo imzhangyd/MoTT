@@ -251,7 +251,7 @@ class PredHeads(nn.Module):
 class pred_biatt_clshead(nn.Module):
     """consider decoder output as key value, consider encoder output as query, and use the attention to do classification"""
 
-    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1, n_length=6) -> None:
+    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1, n_length=6, out_size=4, inoutdim=12) -> None:
         super().__init__()
         self.cross_attn = MultiHeadAttention(
             n_head, d_model, d_k, d_v, dropout=dropout, n_length=n_length
@@ -264,15 +264,34 @@ class pred_biatt_clshead(nn.Module):
             nn.Linear(n_head*n_length, n_head*n_length // 2, bias=True),
             nn.Linear(n_head*n_length // 2, 1, bias=True),
         )
+
+        self.reg_mlp = nn.Sequential(
+            nn.Linear(d_model, d_model, bias=True),
+            nn.LayerNorm(d_model),
+            nn.ReLU(),
+            nn.Linear(d_model, d_model // 2, bias=True),
+            nn.Linear(d_model // 2, out_size, bias=True),
+        )
+        self.reg_linear = nn.Linear(n_length, 1, bias=True)
+        self.inoutdim = inoutdim
     
     def forward(self, enc_output, dec_ouptut):
-        _, attn = self.cross_attn(q=enc_output,k = dec_ouptut,v=dec_ouptut,mask=None)
+        enc_output, attn = self.cross_attn(q=enc_output,k = dec_ouptut,v=dec_ouptut,mask=None)
         # attn.shape = [bs, n_head, q_token_num, k_token_num]
         size_att = [attn.size()[0],-1,attn.size()[-1]]
         attn = attn.view(size_att).transpose(-1,-2)
-        pred = self.cls_FFN(attn).squeeze(dim=-1)
+        prob = self.cls_FFN(attn).squeeze(dim=-1)
 
-        return pred
+
+        pred = self.reg_mlp(enc_output)  # bs,past_len=6, inoutdim*n_length
+        pred = pred.transpose(-1, -2)  # bs, inoutdim*n_length,past_len=6
+        pred = self.reg_linear(pred).squeeze(dim=-1)  # bs, inoutdim*n_length
+        pred = pred.view(*pred.shape[0:1], -1, self.inoutdim)  # bs, n_length, inoutdim
+        # inoutdim = normed[s_x, s_y, s_size, s_inten,  x, y, size, inten,   abs shiftx, abs shift y, abs dist,     flag]
+        pred[..., -1] = torch.sigmoid(pred[..., -1])
+
+
+        return pred, prob
 
 
         
@@ -331,16 +350,16 @@ class Transformer(nn.Module):
             inoutdim=inoutdim,
         )
 
-        self.pred_ = PredHeads(
-            d_model=self.d_model,
-            n_candi=n_candi,
-            out_size=n_future * inoutdim,
-            dropout=dropout,
-            reg_h_dim=128,
-            dis_h_dim=128,
-            cls_h_dim=128,
-            inoutdim=inoutdim,
-        )
+        # self.pred_ = PredHeads(
+        #     d_model=self.d_model,
+        #     n_candi=n_candi,
+        #     out_size=n_future * inoutdim,
+        #     dropout=dropout,
+        #     reg_h_dim=128,
+        #     dis_h_dim=128,
+        #     cls_h_dim=128,
+        #     inoutdim=inoutdim,
+        # )
 
         self.pred_cls = pred_biatt_clshead(
             n_head=n_head,
@@ -348,7 +367,9 @@ class Transformer(nn.Module):
             d_k=d_k,
             d_v=d_v,
             dropout=dropout, 
-            n_length=n_passed-1)
+            n_length=n_passed-1,
+            out_size=n_future * inoutdim,
+            inoutdim=inoutdim,)
 
         assert d_model == d_word_vec
         for p in self.parameters():
@@ -376,9 +397,9 @@ class Transformer(nn.Module):
         )
 
         # dec_output --> reg_head --> pred position
-        pred_shift = self.pred_(dec_output)
+        # pred_shift = self.pred_(dec_output)
 
         # dec_output --> 
-        pred_score = self.pred_cls(enc_output,dec_output)
+        pred_shift, pred_score = self.pred_cls(enc_output,dec_output)
 
         return pred_shift, pred_score
