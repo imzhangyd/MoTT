@@ -26,6 +26,7 @@ def train_epoch(model, training_data, optimizer, opt, device, smoothing):
     total_loss, total_loss_prob, total_loss_dist, total_loss_flag = 0, 0, 0, 0
     total_accuracy = 0
     total_accuracy_nextone = 0
+    total_accuracy_flag = 0
 
     desc = "  - (Training)   "
     Loss_func = nn.CrossEntropyLoss()
@@ -70,6 +71,11 @@ def train_epoch(model, training_data, optimizer, opt, device, smoothing):
         accracy = np.sum((pred_num == label_prob).cpu().numpy())
         total_accuracy += accracy
 
+        accuracy_flag = np.sum(
+            ((pred_shift[..., -1] > 0.5) * 1.0 == label_shift[..., -1]).cpu().numpy()
+        )
+        total_accuracy_flag += accuracy_flag
+
         # nextright_range = opt.near**(opt.len_future-1)
         # up = (label_prob - label_prob%nextright_range)
         # down = up+nextright_range
@@ -91,6 +97,7 @@ def train_epoch(model, training_data, optimizer, opt, device, smoothing):
         total_loss,
         total_accuracy,
         total_accuracy_nextone,
+        total_accuracy_flag,
     )
 
 
@@ -101,6 +108,7 @@ def eval_epoch(model, validation_data, device, opt):
     total_loss, total_loss_prob, total_loss_dist, total_loss_flag = 0, 0, 0, 0
     total_accuracy = 0
     total_accuracy_nextone = 0
+    total_accuracy_flag = 0
 
     desc = "  - (Validation) "
     Loss_func = nn.CrossEntropyLoss()
@@ -141,6 +149,13 @@ def eval_epoch(model, validation_data, device, opt):
             accracy = np.sum((pred_num == label_prob).cpu().numpy())
             total_accuracy += accracy
 
+            accuracy_flag = np.sum(
+                ((pred_shift[..., -1] > 0.5) * 1.0 == label_shift[..., -1])
+                .cpu()
+                .numpy()
+            )
+            total_accuracy_flag += accuracy_flag
+
             # nextright_range = opt.near**(opt.len_future-1)
             # up = (label_prob - label_prob%nextright_range)
             # down = up+nextright_range
@@ -162,6 +177,7 @@ def eval_epoch(model, validation_data, device, opt):
         total_loss,
         total_accuracy,
         total_accuracy_nextone,
+        total_accuracy_flag,
     )
 
 
@@ -226,6 +242,7 @@ def train(
             train_loss,
             train_accuracy,
             train_accuracy_nextone,
+            train_accuracy_flag,
         ) = train_epoch(
             model, training_data, optimizer, opt, device, smoothing=opt.label_smoothing
         )
@@ -237,6 +254,7 @@ def train(
 
         train_accuracy_nextone /= traindata_len
         train_acc = train_accuracy / traindata_len
+        train_accuracy_flag /= traindata_len * opt.len_future
         # Current learning rate
         lr = optimizer._optimizer.param_groups[0]["lr"]
         # print('Loss:{}'.format(train_loss))
@@ -250,6 +268,7 @@ def train(
             valid_loss,
             valid_accuracy,
             valid_accuracy_nextone,
+            valid_accuracy_flag,
         ) = eval_epoch(model, validation_data, device, opt)
         valid_loss_prob /= valdata_len
         valid_loss_dist /= valdata_len
@@ -257,6 +276,7 @@ def train(
         valid_loss /= valdata_len
         valid_accuracy_nextone /= valdata_len
         valid_acc = valid_accuracy / valdata_len
+        valid_accuracy_flag /= valdata_len * opt.len_future
         print_performances("Validation", valid_loss, valid_acc, start, lr)
         valid_losses += [valid_loss]
 
@@ -301,6 +321,8 @@ def train(
             tb_writer.add_scalar(
                 "accuracy/val_nextone", valid_accuracy_nextone, epoch_i
             )
+            tb_writer.add_scalar("accuracy/train_flag", train_accuracy_flag, epoch_i)
+            tb_writer.add_scalar("accuracy/val_flag", valid_accuracy_flag, epoch_i)
 
             tb_writer.add_scalar("learning_rate", lr, epoch_i)
 

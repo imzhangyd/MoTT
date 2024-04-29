@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=0 python tracking.py --test_path='/mnt/data1/ZYDdata/code/MoTT_particle_notsame/MoTT/dataset/tracks10/origin/test_2024_04_08__14_44_54.csv' --model_ckpt_path='/mnt/data1/ZYDdata/code/MoTT/checkpoint/20240423_17_19_11_tracks10_balance_ckpt/20240423_17_42_28.chkpt' --holdnum=0
