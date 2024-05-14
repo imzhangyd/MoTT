@@ -29,10 +29,23 @@ __author__ = "Yudong Zhang"
 # pulp solver
 def probability_maximization_pulp_solver(costs, trackid_list, detid_list):
     """
-    costs: a numpy array (n * 3), look like [[cost0, trackid_0, detid_0], [cost1, trackid_1, detid_1],...]
+    costs: a list (n * 3), looks like [[cost0, trackid_0, detid_0], [cost1, trackid_1, detid_1],...], costs dtype is [[float, int, int]]
     trackid_list: trackid_0,trackid_1,...
     detid_list: detid_0,detid_1,...
     """
+    # duplicate removal
+    df = pd.DataFrame(np.array(costs))
+    df_unique = df.drop_duplicates(subset=[1, 2])
+    df_unique[[1, 2]] = df_unique[[1, 2]].astype(int)
+    costs = [
+        [a, b, c]
+        for a, b, c in zip(
+            df_unique[0].values.tolist(),
+            df_unique[1].values.tolist(),
+            df_unique[2].values.tolist(),
+        )
+    ]
+
     # set variables
     varis = []
     for i in range(len(costs)):
@@ -170,7 +183,14 @@ def probability_maximization_gurobi_solver(costs, trackid_list, detid_list):
 
 
 def make_tracklets(
-    established_track, detection_total, this_frame, end_frame, Past, Near, Cand
+    established_track,
+    detection_total,
+    this_frame,
+    end_frame,
+    Past,
+    Near,
+    Cand,
+    max_dist,
 ):
     """
     This function is used to generate candidate tracklets for each live tracklet.
@@ -263,6 +283,9 @@ def make_tracklets(
                     # extend node using near position
                     det_id_4cand = []
                     for ppos in np_re:
+                        # set filter detection far away
+                        if ppos[-1] > max_dist**2:
+                            break
                         det_id_4cand.append(int(ppos[-2]))
                         numb += 1
                         nodename = tobe_extlabel + str(numb)
@@ -306,13 +329,13 @@ def make_tracklets(
                 all_candidate.append(onepath_data)
 
             # Check all items are different
-            if convert_one_track[-1][frame_idx] < (end_frame - (Cand - 1)):
-                str_candlist = [str(_) for _ in all_candidate]
-                assert len(str_candlist) == len(set(str_candlist)), print(
-                    f"Warning: Generated candidate duplicates! \
-                        \n last livetrack frame:{convert_one_track[-1][frame_idx]}, Cand:{Cand}, end_frame-(Cand-1):{end_frame-(Cand-1)} \
-                        \n generated cand list: {all_candidate}"
-                )
+            # if convert_one_track[-1][frame_idx] < (end_frame - (Cand - 1)):
+            #     str_candlist = [str(_) for _ in all_candidate]
+            #     assert len(str_candlist) == len(set(str_candlist)), print(
+            #         f"Warning: Generated candidate duplicates! \
+            #             \n last livetrack frame:{convert_one_track[-1][frame_idx]}, Cand:{Cand}, end_frame-(Cand-1):{end_frame-(Cand-1)} \
+            #             \n generated cand list: {all_candidate}"
+            #     )
 
         thistrack_dic["trackid"] = one_trackid
         thistrack_dic["nextone_candid"] = det_id_4cand_reserve
@@ -332,6 +355,7 @@ def tracking(
     Past,
     Cand,
     Near,
+    max_dist,
     no_cuda=False,
     holdnum=1,
     solver_name="pulp",
@@ -411,7 +435,14 @@ def tracking(
         # 1. For each livetracklet, make candidate live trackelts by constructing hypothesis tree
         # print('===>>> Step1: make tracklets')
         one_frame_match_list = make_tracklets(
-            established_track, detection_total, this_frame, end_frame, Past, Near, Cand
+            established_track,
+            detection_total,
+            this_frame,
+            end_frame,
+            Past,
+            Near,
+            Cand,
+            max_dist,
         )
 
         # 2. predict matching probabilities between livetracklet and candidate tracklets, and predict future state(next position and existence probability)

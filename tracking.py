@@ -92,6 +92,8 @@ def parse_args_():
 
     parser.add_argument("--det_keep_rate", type=float, default=1.0)
 
+    parser.add_argument("--img_size", type=float, default=132.0)
+
     opt = parser.parse_args()
     return opt
 
@@ -130,6 +132,7 @@ if __name__ == "__main__":
         Past=past,
         Cand=cand,
         Near=near,
+        max_dist=opt.img_size * 0.05,
         no_cuda=opt.no_cuda,
         holdnum=opt.holdnum,
         mean_=opt.traindatamean,
