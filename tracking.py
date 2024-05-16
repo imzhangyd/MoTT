@@ -92,7 +92,7 @@ def parse_args_():
 
     parser.add_argument("--det_keep_rate", type=float, default=1.0)
 
-    parser.add_argument("--img_size", type=float, default=132.0)
+    parser.add_argument("--img_size", type=float, default=512.0)
 
     opt = parser.parse_args()
     return opt

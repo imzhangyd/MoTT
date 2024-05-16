@@ -390,10 +390,10 @@ def tracking(
     detection_total["intensity"] = detection_total["size"] * 50.0
     detection_total = detection_total[["pos_x", "pos_y", "size", "intensity", "frame"]]
 
-    detection_total["det_id"] = detection_total.index
-    # detection_total = detection_total.sample(frac=fract, replace=False, random_state=1, axis=0)
-    # detection_total.reset_index(drop=True, inplace=True)
     # detection_total["det_id"] = detection_total.index
+    detection_total = detection_total.sample(frac=fract, replace=False, random_state=1, axis=0)
+    detection_total.reset_index(drop=True, inplace=True)
+    detection_total["det_id"] = detection_total.index
 
     start_frame = min(list(detection_total["frame"]))
     end_frame = max(list(detection_total["frame"]))
