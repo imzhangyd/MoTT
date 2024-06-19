@@ -5,3 +5,4 @@ prediction/
 __pycache__/
 **/__pycache__/
 **.sh
+.python-version
